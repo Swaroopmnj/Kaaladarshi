@@ -7,6 +7,7 @@ import {
   computeLagna,
   computeRashiChart,
   computeNavamsa,
+  computeShadbala,
   computeVimshottariDashaFromBirth,
   computePlanetaryPositions,
   computeTarabala,
@@ -1131,11 +1132,17 @@ export default function App() {
               // Cast near the middle of each surviving interval, rather than at the exact
               // transition boundary. This keeps the chart safely inside the elected Lagna.
               const midpoint = new Date((w.start.getTime() + w.end.getTime()) / 2);
-              const chart = computeRashiChart(
-                toRealInstant(midpoint, sr.city.timezone),
-                { latitude: sr.city.latitude, longitude: sr.city.longitude },
-              );
-              const checks = evaluateElectionMahadoshas(chart);
+              const realInstant = toRealInstant(midpoint, sr.city.timezone);
+              const location = { latitude: sr.city.latitude, longitude: sr.city.longitude };
+              const chart = computeRashiChart(realInstant, location);
+              const navamsa = computeNavamsa(realInstant, location);
+              const shadbala = computeShadbala(realInstant, location);
+              const natalLagnaIdx = kundaliResult?.d1.lagna.rashi.index;
+              const checks = evaluateElectionMahadoshas(chart, {
+                navamsaLagnaRashiIndex: navamsa.lagnaRashi.index,
+                natalLagnaRashiIndex: natalLagnaIdx,
+                shadbala,
+              });
               const lagnaType = classifyLagna(chart.lagna.rashi.index ?? 0);
               const lagnaVerdict = lagnaVerdictFor(sr.activityKey, lagnaType);
               const activeTithi = activeLimbAt(sr.day.raw.panchang.tithis, midpoint);
@@ -1143,18 +1150,12 @@ export default function App() {
               const pr = panchakaRahitaAtWindow(activeTithi, sr.day.raw.panchang.vara.englishName, activeNak.name, chart.lagna.rashi.index ?? 0);
               const major = checks.filter(c => c.state === 'present' && c.severity === 'major').length;
               const moderate = checks.filter(c => c.state === 'present' && c.severity === 'moderate').length;
-              // Natal Ashtama Lagna cross-check: only possible once the user has generated
-              // their full Kundali (Kundali tab), since it needs their actual natal Lagna
-              // rashi, not just Nakshatra/Rāśi. Classical rule: an election Lagna falling
-              // 8th from the native's own natal Lagna is inauspicious for that native.
-              const natalLagnaIdx = kundaliResult?.d1.lagna.rashi.index;
               const ashtamaFromNatalLagna = natalLagnaIdx !== undefined
-                ? ((chart.lagna.rashi.index - natalLagnaIdx + 12) % 12) + 1 === 8
+                ? (checks.find(c => c.n === 12)?.state === 'present')
                 : null;
-              const majorWithNatal = major + (ashtamaFromNatalLagna ? 1 : 0);
               // Ranking is deliberately hierarchical: hard election-chart defects dominate;
               // positive features cannot erase them. The numeric value only sorts survivors.
-              const rank = (majorWithNatal ? -1000 * majorWithNatal : 0)
+              const rank = (major ? -1000 * major : 0)
                 + (lagnaVerdict === 'auspicious' ? 60 : lagnaVerdict === 'medium' ? 25 : -80)
                 + (pr?.rahita ? 45 : pr ? -60 : 0)
                 - moderate * 20
@@ -1206,12 +1207,6 @@ export default function App() {
 
                   <h4>Important election-chart checks — in plain language</h4>
                   <div className="simple-checks">
-                    {c.ashtamaFromNatalLagna !== null && (
-                      <div className={`simple-check ${c.ashtamaFromNatalLagna ? 'bad-check' : 'good-check'}`}>
-                        <strong>{c.ashtamaFromNatalLagna ? '🔴' : '🟢'} Ashtama Lagna (from your natal Lagna)</strong>
-                        <span>{c.ashtamaFromNatalLagna ? 'Defect detected: ' : 'Clear: '}This election Lagna ({c.chart.lagna.rashi.name}) is {c.ashtamaFromNatalLagna ? '' : 'not '}8th from your own natal Lagna ({kundaliResult?.d1.lagna.rashi.name}) — a personalised check made possible by generating your Kundali.</span>
-                      </div>
-                    )}
                     {c.checks.map(x => <div key={x.n} className={`simple-check ${x.state === 'present' ? 'bad-check' : 'good-check'}`}>
                       <strong>{x.state === 'present' ? '🔴' : '🟢'} #{x.n} {MAHADOSHAS.find(m => m.n === x.n)?.name ?? 'Mahādoṣa'}</strong>
                       <span>{x.state === 'present' ? 'Defect detected: ' : 'Clear: '}{x.detail}</span>
