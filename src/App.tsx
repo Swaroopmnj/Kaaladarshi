@@ -1139,6 +1139,7 @@ export default function App() {
               const shadbala = computeShadbala(realInstant, location);
               const natalLagnaIdx = kundaliResult?.d1.lagna.rashi.index;
               const checks = evaluateElectionMahadoshas(chart, {
+                activityKey: sr.activityKey,
                 navamsaLagnaRashiIndex: navamsa.lagnaRashi.index,
                 natalLagnaRashiIndex: natalLagnaIdx,
                 shadbala,

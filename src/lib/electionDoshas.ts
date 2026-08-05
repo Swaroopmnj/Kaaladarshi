@@ -20,6 +20,18 @@ function planet(chart: BirthChart, name: string) {
 }
 
 export interface ElectionDoshaOptions {
+  /** Which activity this election is for. Several Mahādoṣas are explicitly
+   *  weighted stricter for marriage in the classical sources — e.g.
+   *  vedastro.org's Muhurtha Ch.5 guide states Bhṛgu Ṣaṣṭha, Kujāṣṭama,
+   *  Sagraha Chandra and Aṣṭama Lagna are "treated with zero tolerance in
+   *  marriage charts," and B.V. Raman's Muhurtha notes Sagraha Chandra is
+   *  "specially applicable in case of marriage." Passing the activity lets
+   *  those four flag as 'major' (hard, score-zeroing) for vivah specifically
+   *  and 'moderate' (flagged but not hard-blocking) for other activities,
+   *  where the same textual basis doesn't apply with the same force. Omit
+   *  to keep the previous uniform-severity behaviour.
+   */
+  activityKey?: string;
   /** The election moment's own Navamsa (D9) chart — enables Kunavamsa (#14). */
   navamsaLagnaRashiIndex?: number;
   /** The querent's (or, for marriage, either party's) NATAL Lagna rashi index
@@ -65,18 +77,21 @@ export function evaluateElectionMahadoshas(chart: BirthChart, options: ElectionD
       detail: moon ? `Moon is in house ${moon.house} from the election Lagna${moonBadHouse ? ' (6/8/12 defect detected)' : ''}.` : 'Moon position unavailable.',
     },
     {
-      n: 5, name: 'Sagraha Chandra', state: moonConj.length ? 'present' : 'clear', severity: 'moderate',
+      n: 5, name: 'Sagraha Chandra', state: moonConj.length ? 'present' : 'clear',
+      severity: options.activityKey === 'vivah' ? 'major' : 'moderate',
       detail: moonConj.length
-        ? `Moon shares ${moon?.rashi.name} with ${moonConj.map(p => p.planet).join(', ')}. This flags the classical same-rashi conjunction condition; exact angular/orb interpretation can be exposed as a tradition setting later.`
+        ? `Moon shares ${moon?.rashi.name} with ${moonConj.map(p => p.planet).join(', ')}. B.V. Raman: "specially applicable in case of marriage" — treated as major here for Vivāha, moderate for other activities. Exact angular/orb interpretation can be exposed as a tradition setting later.`
         : 'Moon does not share its Rashi with another graha.',
     },
     {
-      n: 10, name: 'Bhrigu Shatka', state: venus?.house === 6 ? 'present' : 'clear', severity: 'major',
-      detail: venus ? `Venus is in house ${venus.house} from the election Lagna.` : 'Venus position unavailable.',
+      n: 10, name: 'Bhrigu Shatka', state: venus?.house === 6 ? 'present' : 'clear',
+      severity: options.activityKey === 'vivah' ? 'major' : 'moderate',
+      detail: venus ? `Venus is in house ${venus.house} from the election Lagna. Zero-tolerance for Vivāha per classical sourcing (Venus in 6th destroys marital harmony); treated as moderate for other activities.` : 'Venus position unavailable.',
     },
     {
-      n: 11, name: 'Kujasthama', state: mars?.house === 8 ? 'present' : 'clear', severity: 'major',
-      detail: mars ? `Mars is in house ${mars.house} from the election Lagna.` : 'Mars position unavailable.',
+      n: 11, name: 'Kujasthama', state: mars?.house === 8 ? 'present' : 'clear',
+      severity: options.activityKey === 'vivah' ? 'major' : 'moderate',
+      detail: mars ? `Mars is in house ${mars.house} from the election Lagna. Zero-tolerance for Vivāha per classical sourcing; treated as moderate for other activities.` : 'Mars position unavailable.',
     },
   ];
 
@@ -84,9 +99,10 @@ export function evaluateElectionMahadoshas(chart: BirthChart, options: ElectionD
     const count = ((chart.lagna.rashi.index - options.natalLagnaRashiIndex + 12) % 12) + 1;
     const present = count === 8;
     results.push({
-      n: 12, name: 'Ashtama Lagna', state: present ? 'present' : 'clear', severity: 'major',
+      n: 12, name: 'Ashtama Lagna', state: present ? 'present' : 'clear',
+      severity: options.activityKey === 'vivah' ? 'major' : 'moderate',
       detail: present
-        ? `This election Lagna (${chart.lagna.rashi.name}) is the 8th house counted from your natal Lagna — a defect for the person whose chart this is measured against.`
+        ? `This election Lagna (${chart.lagna.rashi.name}) is the 8th house counted from your natal Lagna — zero-tolerance for Vivāha per classical sourcing, moderate for other activities.`
         : `This election Lagna is house ${count} from your natal Lagna, not the 8th — clear for you personally.`,
     });
   }
