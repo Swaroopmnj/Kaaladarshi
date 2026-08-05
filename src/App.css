@@ -207,3 +207,45 @@ button.secondary:hover { background: #fdf2df; }
 .technical-details > summary { cursor: pointer; color: #7b4300; }
 .candidate-summary { margin-top: 14px; }
 @media (max-width: 760px) { .simple-check { grid-template-columns: 1fr; gap: 4px; } }
+
+/* Per-Lagna candidate accordion in the Full Muhurat Report — each <details
+   className="report-block"> is one clickable, self-contained Lagna report. */
+.results-panel details.report-block {
+  margin-bottom: 0.9rem;
+  padding: 0;
+  overflow: hidden;
+  transition: box-shadow 0.15s ease;
+}
+.results-panel details.report-block:hover { box-shadow: 0 2px 10px rgba(90, 60, 20, 0.1); }
+.results-panel details.report-block[open] { border-color: var(--accent); }
+.results-panel details.report-block > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.9rem 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.98rem;
+  background: #fffdf9;
+  border-bottom: 1px solid transparent;
+}
+.results-panel details.report-block[open] > summary { border-bottom-color: var(--border); background: #fdf6ea; }
+.results-panel details.report-block > summary::-webkit-details-marker { display: none; }
+.results-panel details.report-block > summary::before {
+  content: '▸';
+  color: var(--accent);
+  font-size: 0.85rem;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.results-panel details.report-block[open] > summary::before { transform: rotate(90deg); }
+.results-panel details.report-block > summary strong { flex: 1; }
+.results-panel details.report-block > *:not(summary) { padding: 0 1.1rem 1.1rem; }
+.results-panel details.report-block > .report-grid,
+.results-panel details.report-block > .plain-summary,
+.results-panel details.report-block > .simple-checks,
+.results-panel details.report-block > h4 { margin-left: 1.1rem; margin-right: 1.1rem; }
+/* "Best available" candidate gets a gold left accent to stand out in the stack */
+.results-panel details.report-block:first-of-type { border-left: 4px solid var(--good, #2e7d32); }
+
+.link-button { background: none; border: none; color: var(--accent-dark); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }

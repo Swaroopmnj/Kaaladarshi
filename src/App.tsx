@@ -457,7 +457,6 @@ export default function App() {
         <button className={tab === 'personal' ? 'active' : ''} onClick={() => setTab('personal')}>Personalised Muhurat</button>
         <button className={tab === 'fullReport' ? 'active' : ''} onClick={() => setTab('fullReport')}>Full Muhurat Report</button>
         <button className={tab === 'kundali' ? 'active' : ''} onClick={() => setTab('kundali')}>Kundali</button>
-        <button className={tab === 'guide' ? 'active' : ''} onClick={() => setTab('guide')}>Rules &amp; Exceptions Guide</button>
       </nav>
 
       {tab === 'panchang' && (
@@ -476,6 +475,7 @@ export default function App() {
               </select>
             </div>
           </div>
+          <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setPCityIdx(CUSTOM_LOCATION_INDEX); }} />
           {pCityIdx === CUSTOM_LOCATION_INDEX && (
             <div className="field-row">
               <div className="field">
@@ -486,7 +486,6 @@ export default function App() {
                 <label>Longitude</label>
                 <input type="number" step="0.0001" value={customLng} onChange={(e) => setCustomLng(Number(e.target.value))} />
               </div>
-              <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); }} />
             </div>
           )}
 
@@ -661,6 +660,7 @@ export default function App() {
             ))}
           </select>
         </div>
+        <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setCityIdx(CUSTOM_LOCATION_INDEX); }} />
         {cityIdx === CUSTOM_LOCATION_INDEX && (
           <div className="field-row">
             <div className="field">
@@ -671,7 +671,6 @@ export default function App() {
               <label>Longitude</label>
               <input type="number" step="0.0001" value={customLng} onChange={(e) => setCustomLng(Number(e.target.value))} />
             </div>
-            <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); }} />
           </div>
         )}
 
@@ -906,6 +905,7 @@ export default function App() {
               ))}
             </select>
           </div>
+          <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setBirthCityIdx(CUSTOM_LOCATION_INDEX); }} />
           {birthCityIdx === CUSTOM_LOCATION_INDEX && (
             <div className="field-row">
               <div className="field">
@@ -916,7 +916,6 @@ export default function App() {
                 <label>Longitude</label>
                 <input type="number" step="0.0001" value={customLng} onChange={(e) => setCustomLng(Number(e.target.value))} />
               </div>
-              <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); }} />
             </div>
           )}
           <button className="primary" onClick={computeBirthChart}>Compute My Chart</button>
@@ -931,10 +930,11 @@ export default function App() {
                 <li>Lagna (Ascendant): {birthChart.lagna}</li>
               </ul>
               <p className="hint">
-                Only Nakshatra, Rāśi and Lagna are derived here — full birth-chart doshas (Karthari,
-                Bhrigu Shatka, Kujasthama, Ashtama Lagna, etc.) still need the Phase 2 work noted below.
-                For marriage compatibility with a partner, use the Muhurat Finder tab, which now has
-                your Nakshatra/Rāśi pre-filled as the groom slot.
+                This is a quick summary (Nakṣatra/Rāśi/Lagna only). For your full birth chart — Rāśi
+                (D1) and Navāṁśa (D9) charts, every planet's house, and your Vimśottari Daśā — generate
+                it in the <button type="button" className="link-button" onClick={() => setTab('kundali')}>Kundali tab</button>.
+                Once generated, muhurat searches here and the Full Muhurat Report will also cross-check
+                candidate Lagnas against your own natal Lagna for a more precise result.
               </p>
             </div>
           )}
@@ -970,6 +970,7 @@ export default function App() {
                   ))}
                 </select>
               </div>
+              <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setCityIdx(CUSTOM_LOCATION_INDEX); }} />
               {cityIdx === CUSTOM_LOCATION_INDEX && (
                 <div className="field-row">
                   <div className="field">
@@ -980,7 +981,6 @@ export default function App() {
                     <label>Longitude</label>
                     <input type="number" step="0.0001" value={customLng} onChange={(e) => setCustomLng(Number(e.target.value))} />
                   </div>
-                  <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); }} />
                 </div>
               )}
               <button className="primary" onClick={runSearch} disabled={loading || isVivah}>
@@ -1159,14 +1159,23 @@ export default function App() {
               const pr = panchakaRahitaAtWindow(activeTithi, sr.day.raw.panchang.vara.englishName, activeNak.name, chart.lagna.rashi.index ?? 0);
               const major = checks.filter(c => c.state === 'present' && c.severity === 'major').length;
               const moderate = checks.filter(c => c.state === 'present' && c.severity === 'moderate').length;
+              // Natal Ashtama Lagna cross-check: only possible once the user has generated
+              // their full Kundali (Kundali tab), since it needs their actual natal Lagna
+              // rashi, not just Nakshatra/Rāśi. Classical rule: an election Lagna falling
+              // 8th from the native's own natal Lagna is inauspicious for that native.
+              const natalLagnaIdx = kundaliResult?.d1.lagna.rashi.index;
+              const ashtamaFromNatalLagna = natalLagnaIdx !== undefined
+                ? ((chart.lagna.rashi.index - natalLagnaIdx + 12) % 12) + 1 === 8
+                : null;
+              const majorWithNatal = major + (ashtamaFromNatalLagna ? 1 : 0);
               // Ranking is deliberately hierarchical: hard election-chart defects dominate;
               // positive features cannot erase them. The numeric value only sorts survivors.
-              const rank = (major ? -1000 * major : 0)
+              const rank = (majorWithNatal ? -1000 * majorWithNatal : 0)
                 + (lagnaVerdict === 'auspicious' ? 60 : lagnaVerdict === 'medium' ? 25 : -80)
                 + (pr?.rahita ? 45 : pr ? -60 : 0)
                 - moderate * 20
                 + Math.max(0, Math.round((w.end.getTime() - w.start.getTime()) / 60000 / 10));
-              return { index, w, midpoint, chart, checks, lagnaType, lagnaVerdict, activeTithi, activeNak, pr, major, moderate, rank };
+              return { index, w, midpoint, chart, checks, lagnaType, lagnaVerdict, activeTithi, activeNak, pr, major, moderate, rank, ashtamaFromNatalLagna };
             }).sort((a,b) => b.rank - a.rank);
             return <div className="report-block">
               <h3>{sr.activityLabel} — {fmtDate(sr.day.raw.date)}</h3>
@@ -1194,7 +1203,7 @@ export default function App() {
                 const byNo = new Map(c.checks.map(x => [x.n, x]));
                 const isBest = pos === 0;
                 return <details key={`${c.w.start.getTime()}-${c.chart.lagna.rashi.index}`} className="report-block" open={isBest}>
-                  <summary><strong>{isBest ? '🏆 Best available on this day — ' : ''}{c.chart.lagna.rashi.name} Lagna</strong> · {fmtTimeDay(c.w.start, sr.day.raw.panchang.sunrise)} – {fmtTimeDay(c.w.end, sr.day.raw.panchang.sunrise)} · {c.major ? `❌ ${c.major} major detected` : c.pr && !c.pr.rahita ? `⚠️ ${c.pr.type} Panchaka` : '✓ candidate'}</summary>
+                  <summary><strong>{isBest ? '🏆 Best available on this day — ' : ''}{c.chart.lagna.rashi.name} Lagna</strong> · {fmtTimeDay(c.w.start, sr.day.raw.panchang.sunrise)} – {fmtTimeDay(c.w.end, sr.day.raw.panchang.sunrise)} · {c.major ? `❌ ${c.major} major detected` : c.pr && !c.pr.rahita ? `⚠️ ${c.pr.type} Panchaka` : '✓ candidate'}{c.ashtamaFromNatalLagna ? ' · ❌ 8th from your natal Lagna' : ''}</summary>
                   <div className="report-grid">
                     <SouthIndianChart lagnaRashiIndex={c.chart.lagna.rashi.index} planets={c.chart.planets} />
                     <div className="report-text">
@@ -1213,12 +1222,21 @@ export default function App() {
 
                   <h4>Important election-chart checks — in plain language</h4>
                   <div className="simple-checks">
+                    {c.ashtamaFromNatalLagna !== null && (
+                      <div className={`simple-check ${c.ashtamaFromNatalLagna ? 'bad-check' : 'good-check'}`}>
+                        <strong>{c.ashtamaFromNatalLagna ? '🔴' : '🟢'} Ashtama Lagna (from your natal Lagna)</strong>
+                        <span>{c.ashtamaFromNatalLagna ? 'Defect detected: ' : 'Clear: '}This election Lagna ({c.chart.lagna.rashi.name}) is {c.ashtamaFromNatalLagna ? '' : 'not '}8th from your own natal Lagna ({kundaliResult?.d1.lagna.rashi.name}) — a personalised check made possible by generating your Kundali.</span>
+                      </div>
+                    )}
                     {c.checks.map(x => <div key={x.n} className={`simple-check ${x.state === 'present' ? 'bad-check' : 'good-check'}`}>
                       <strong>{x.state === 'present' ? '🔴' : '🟢'} #{x.n} {MAHADOSHAS.find(m => m.n === x.n)?.name ?? 'Mahādoṣa'}</strong>
                       <span>{x.state === 'present' ? 'Defect detected: ' : 'Clear: '}{x.detail}</span>
                     </div>)}
                     {MAHADOSHAS.filter(m => !byNo.has(m.n) && !m.automated).length > 0 && <div className="simple-check pending-check"><strong>⚪ Checks still pending</strong><span>{MAHADOSHAS.filter(m => !byNo.has(m.n) && !m.automated).length} Ekaviṃśati rules are not yet fully evaluated by the engine. They are shown in the technical audit below so the report never pretends they passed.</span></div>}
                   </div>
+                  {c.ashtamaFromNatalLagna === null && (
+                    <p className="hint">Tip: generate your <button type="button" className="link-button" onClick={() => setTab('kundali')}>Kundali</button> to unlock a natal Ashtama-Lagna cross-check specific to you on every candidate Lagna.</p>
+                  )}
 
                   <details className="technical-details">
                     <summary><strong>Show technical Ekaviṃśati audit (all 21)</strong></summary>
@@ -1249,6 +1267,15 @@ export default function App() {
       {tab === 'kundali' && (
         <section className="panel form-panel">
           <p className="sub-label">Generate a Vedic birth chart (Kundali) — Rāśi (D1), Navāṁśa (D9), planetary positions, and Vimśottari Daśā.</p>
+          {birthDate && (birthDate !== kundaliDate || birthTime !== kundaliTime) && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => { setKundaliDate(birthDate); setKundaliTime(birthTime); }}
+            >
+              Use birth date/time from Personalised Muhurat tab ({birthDate} {birthTime})
+            </button>
+          )}
           <div className="field-row">
             <div className="field">
               <label>Birth Date</label>
