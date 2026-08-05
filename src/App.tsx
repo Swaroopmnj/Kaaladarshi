@@ -19,7 +19,7 @@ import {
   type AshtakootResult,
   type BirthChart,
 } from 'panchang-ts';
-import { ACTIVITIES, CITY_PRESETS, NAKSHATRAS, RASHIS, PANCHAKA_ACTIVITY_KEY, DEFAULT_CITY_INDEX, CUSTOM_LOCATION_INDEX, resolveCity } from './lib/constants';
+import { ACTIVITIES, NAKSHATRAS, RASHIS, PANCHAKA_ACTIVITY_KEY, DEFAULT_CITY_INDEX, CUSTOM_LOCATION_INDEX, resolveCity } from './lib/constants';
 import { panchakaTypeFromNakshatra, getPanchakaVerdict, calculatePanchakaRahita, extractTithiNumber, varaNumberFromName } from './lib/panchaka';
 import { MAHADOSHAS } from './lib/mahadoshas';
 import { evaluateElectionMahadoshas } from './lib/electionDoshas';
@@ -468,11 +468,7 @@ export default function App() {
             </div>
             <div className="field">
               <label>Location</label>
-              <select value={pCityIdx} onChange={(e) => setPCityIdx(Number(e.target.value))}>
-                {CITY_PRESETS.map((c, i) => (
-                  <option key={c.name} value={i}>{c.name}</option>
-                ))}
-              </select>
+              <p className="current-location">📍 {pCity.name}</p>
             </div>
           </div>
           <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setPCityIdx(CUSTOM_LOCATION_INDEX); }} />
@@ -654,11 +650,7 @@ export default function App() {
 
         <div className="field">
           <label>Location</label>
-          <select value={cityIdx} onChange={(e) => setCityIdx(Number(e.target.value))}>
-            {CITY_PRESETS.map((c, i) => (
-              <option key={c.name} value={i}>{c.name}</option>
-            ))}
-          </select>
+          <p className="current-location">📍 {city.name}</p>
         </div>
         <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setCityIdx(CUSTOM_LOCATION_INDEX); }} />
         {cityIdx === CUSTOM_LOCATION_INDEX && (
@@ -899,11 +891,7 @@ export default function App() {
           </div>
           <div className="field">
             <label>Birth Place</label>
-            <select value={birthCityIdx} onChange={(e) => setBirthCityIdx(Number(e.target.value))}>
-              {CITY_PRESETS.map((c, i) => (
-                <option key={c.name} value={i}>{c.name}</option>
-              ))}
-            </select>
+            <p className="current-location">📍 {resolveCity(birthCityIdx, customLat, customLng).name}</p>
           </div>
           <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setBirthCityIdx(CUSTOM_LOCATION_INDEX); }} />
           {birthCityIdx === CUSTOM_LOCATION_INDEX && (
@@ -964,11 +952,7 @@ export default function App() {
               </div>
               <div className="field">
                 <label>Location for the event</label>
-                <select value={cityIdx} onChange={(e) => setCityIdx(Number(e.target.value))}>
-                  {CITY_PRESETS.map((c, i) => (
-                    <option key={c.name} value={i}>{c.name}</option>
-                  ))}
-                </select>
+                <p className="current-location">📍 {city.name}</p>
               </div>
               <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setCityIdx(CUSTOM_LOCATION_INDEX); }} />
               {cityIdx === CUSTOM_LOCATION_INDEX && (

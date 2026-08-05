@@ -249,3 +249,5 @@ button.secondary:hover { background: #fdf2df; }
 .results-panel details.report-block:first-of-type { border-left: 4px solid var(--good, #2e7d32); }
 
 .link-button { background: none; border: none; color: var(--accent-dark); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
+
+.current-location { margin: 0; padding: 0.55rem 0.7rem; border-radius: 8px; border: 1px solid var(--border); background: #fdf6ea; font-weight: 600; }
