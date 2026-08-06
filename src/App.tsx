@@ -8,6 +8,7 @@ import {
   computeRashiChart,
   computeNavamsa,
   computeShadbala,
+  computeDignity,
   computeVimshottariDashaFromBirth,
   computePlanetaryPositions,
   computeTarabala,
@@ -23,7 +24,7 @@ import {
 import { ACTIVITIES, NAKSHATRAS, RASHIS, PANCHAKA_ACTIVITY_KEY, DEFAULT_CITY_INDEX, CUSTOM_LOCATION_INDEX, resolveCity } from './lib/constants';
 import { panchakaTypeFromNakshatra, getPanchakaVerdict, calculatePanchakaRahita, extractTithiNumber, varaNumberFromName } from './lib/panchaka';
 import { MAHADOSHAS } from './lib/mahadoshas';
-import { evaluateElectionMahadoshas } from './lib/electionDoshas';
+import { evaluateElectionMahadoshas, RASHI_LORD } from './lib/electionDoshas';
 import { getGoodTimeWindows, type NamedWindow } from './lib/timewindows';
 import {
   getAyana,
@@ -125,6 +126,42 @@ function activeLimbAt<T extends { name: string; endTime: Date | null }>(items: T
 // 13°20' each, 4 padas of 3°20' each) — used for the Kundali planetary
 // positions table, since PlanetPlacement gives rashi/degree but not
 // nakshatra directly.
+// The 6 classical Ritus (seasons) follow a fixed 2-lunar-month mapping —
+// well-established, deterministic, no library function needed for it.
+const RITU_BY_MASA: Record<string, string> = {
+  Chaitra: 'Vasanta (Spring)', Vaishakha: 'Vasanta (Spring)',
+  Jyeshtha: 'Grishma (Summer)', Ashadha: 'Grishma (Summer)',
+  Shravana: 'Varsha (Monsoon)', Bhadrapada: 'Varsha (Monsoon)',
+  Ashwina: 'Sharad (Autumn)', Kartika: 'Sharad (Autumn)',
+  Margashirsha: 'Hemanta (Pre-winter)', Pausha: 'Hemanta (Pre-winter)',
+  Magha: 'Shishira (Winter)', Phalguna: 'Shishira (Winter)',
+};
+const SHUBHA_PLANETS = new Set(['Jupiter', 'Venus', 'Mercury', 'Moon']);
+
+function rituFromMasa(masaName: string): string {
+  const base = masaName.replace('Adhika ', '');
+  return RITU_BY_MASA[base] ?? '—';
+}
+
+// Vimshottari nakshatra-lord cycle (Ketu→Venus→Sun→Moon→Mars→Rahu→Jupiter→
+// Saturn→Mercury, repeating 3× across the 27 nakshatras) — used to show each
+// planet's Nakshatra Lord in the Kundali graha table.
+const NAKSHATRA_LORD_CYCLE = ['Ketu', 'Venus', 'Sun', 'Moon', 'Mars', 'Rahu', 'Jupiter', 'Saturn', 'Mercury'];
+function nakshatraLordFromLongitude(longitude: number): string {
+  const idx = Math.floor(longitude / (360 / 27)) % 27;
+  return NAKSHATRA_LORD_CYCLE[idx % 9];
+}
+
+// Which houses (from the given Lagna) a planet rules, based on which two (or
+// one, for Sun/Moon) rashis it is lord of.
+function housesRuledBy(planetName: string, lagnaRashiIdx: number): number[] {
+  const owned: number[] = [];
+  RASHI_LORD.forEach((lord, rashiIdx) => {
+    if (lord === planetName) owned.push(((rashiIdx - lagnaRashiIdx + 12) % 12) + 1);
+  });
+  return owned;
+}
+
 function nakshatraFromLongitude(longitude: number): { name: string; pada: number } {
   const span = 360 / 27;
   const idx = Math.floor(longitude / span) % 27;
@@ -489,6 +526,7 @@ export default function App() {
           {!panchang && <p>No sunrise could be computed for this date/location (polar latitude).</p>}
 
           {panchang && (
+            <>
             <div className="panchang-grid">
               <div className="pg-card">
                 <h4>Pañcāṅga (5 limbs)</h4>
@@ -510,12 +548,16 @@ export default function App() {
                   <dt>Moonset</dt><dd>{fmtTime(panchang.moonset)}</dd>
                   <dt>Chandra Rāśi</dt><dd>{panchang.chandraRashi?.name}</dd>
                   <dt>Sūrya Nakṣatra</dt><dd>{panchang.suryaNakshatra?.name}</dd>
+                  <dt>Dinamāna</dt><dd>{Math.floor(panchang.dinamanaMinutes / 60)}h {Math.round(panchang.dinamanaMinutes % 60)}m</dd>
+                  <dt>Rātrimāna</dt><dd>{Math.floor(panchang.ratrimanaMinutes / 60)}h {Math.round(panchang.ratrimanaMinutes % 60)}m</dd>
                 </dl>
               </div>
 
               <div className="pg-card">
                 <h4>Calendar</h4>
                 <dl>
+                  <dt>Pakṣa</dt><dd>{panchang.tithis[0]?.paksha}</dd>
+                  <dt>Ṛtu</dt><dd>{rituFromMasa(panchang.chandramasa.name)}</dd>
                   <dt>Chāndra Māsa</dt><dd>{panchang.chandramasa.name}{panchang.chandramasa.isAdhika ? ' (Adhika)' : ''}</dd>
                   <dt>Vikram Samvat</dt><dd>{panchang.samvat.vikramSamvat}</dd>
                   <dt>Śaka Samvat</dt><dd>{panchang.samvat.shakaSamvat}</dd>
@@ -547,6 +589,38 @@ export default function App() {
                 </dl>
               </div>
             </div>
+
+            <div className="pg-card hora-card">
+              <h4>Hora (Planetary Hours)</h4>
+              <p className="hint">
+                Each Hora is ruled by one of the 7 classical planets (12 per day, 12 per night, Chaldean
+                order). Shubha (auspicious) Horas — Jupiter, Venus, Mercury, Moon — are marked green;
+                Pāpa (malefic) Horas — Sun, Mars, Saturn — are marked red.
+              </p>
+              <div className="hora-grid">
+                <div>
+                  <p className="sub-label">Day</p>
+                  <ul className="hora-list">
+                    {panchang.hora.day.map((h, i) => (
+                      <li key={i} className={SHUBHA_PLANETS.has(h.planet) ? 'hora-shubha' : 'hora-papa'}>
+                        {h.planet}: {fmtTimeDay(h.start, panchang.sunrise)} – {fmtTimeDay(h.end, panchang.sunrise)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="sub-label">Night</p>
+                  <ul className="hora-list">
+                    {panchang.hora.night.map((h, i) => (
+                      <li key={i} className={SHUBHA_PLANETS.has(h.planet) ? 'hora-shubha' : 'hora-papa'}>
+                        {h.planet}: {fmtTimeDay(h.start, panchang.sunrise)} – {fmtTimeDay(h.end, panchang.sunrise)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+            </>
           )}
 
           {dayContext && (
@@ -1291,17 +1365,23 @@ export default function App() {
 
               <h4>Planetary Positions (D1)</h4>
               <table className="dosha-table">
-                <thead><tr><th>Graha</th><th>Rāśi</th><th>Degree</th><th>Nakṣatra (pada)</th><th>House</th><th>Retro</th></tr></thead>
+                <thead><tr><th>Graha</th><th>Rāśi</th><th>Degree</th><th>Nakṣatra (pada)</th><th>Nakṣatra Lord</th><th>House</th><th>Rules</th><th>Dignity</th><th>Retro</th></tr></thead>
                 <tbody>
                   {kundaliResult.d1.planets.map((pl) => {
                     const nak = nakshatraFromLongitude(pl.longitude);
+                    const rulesHouses = housesRuledBy(pl.planet, kundaliResult.d1.lagna.rashi.index);
+                    let dignity = '—';
+                    try { dignity = computeDignity(pl.planet as any, pl.rashi.index); } catch { /* Rahu/Ketu have no classical dignity */ }
                     return (
                       <tr key={pl.planet}>
                         <td>{pl.planet}</td>
                         <td>{pl.rashi.name}</td>
                         <td>{pl.degreeInRashi.toFixed(2)}°</td>
                         <td>{nak.name} ({nak.pada})</td>
+                        <td>{nakshatraLordFromLongitude(pl.longitude)}</td>
                         <td>{pl.house}</td>
+                        <td>{rulesHouses.length ? rulesHouses.join(', ') : '—'}</td>
+                        <td>{dignity}</td>
                         <td>{pl.isRetrograde ? 'R' : '—'}</td>
                       </tr>
                     );

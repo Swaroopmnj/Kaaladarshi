@@ -12,7 +12,7 @@ export interface ElectionDoshaCheck {
 const HARD_MALEFICS = new Set(['Sun', 'Mars', 'Saturn', 'Rahu', 'Ketu']);
 
 // Classical (7-graha) rashi lordships. Rahu/Ketu own no sign in this system.
-const RASHI_LORD = ['Mars', 'Venus', 'Mercury', 'Moon', 'Sun', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Saturn', 'Jupiter'];
+export const RASHI_LORD = ['Mars', 'Venus', 'Mercury', 'Moon', 'Sun', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Saturn', 'Jupiter'];
 const MALEFIC_LORDED_RASHIS = new Set([0, 4, 7, 9, 10]); // Mesha/Simha/Vrischika (Mars/Sun/Mars), Makara/Kumbha (Saturn)
 
 function planet(chart: BirthChart, name: string) {
