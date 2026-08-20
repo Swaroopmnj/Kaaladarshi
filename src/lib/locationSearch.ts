@@ -32,3 +32,37 @@ export async function searchIndiaPlaces(query: string): Promise<IndiaPlaceResult
     timezone: 330,
   })).filter((x) => Number.isFinite(x.latitude) && Number.isFinite(x.longitude));
 }
+
+/**
+ * Reverse-geocode a lat/lng (from the browser's Geolocation API) to a place
+ * name, for the "Use my current location" button. Same explicit-trigger-only
+ * caution as searchIndiaPlaces applies — only call on a user click.
+ */
+export async function reverseGeocodeIndia(latitude: number, longitude: number): Promise<IndiaPlaceResult> {
+  const base = import.meta.env.VITE_GEOCODER_REVERSE_URL || 'https://nominatim.openstreetmap.org/reverse';
+  const url = new URL(base);
+  url.searchParams.set('lat', String(latitude));
+  url.searchParams.set('lon', String(longitude));
+  url.searchParams.set('format', 'jsonv2');
+  const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`Reverse geocoding failed (${res.status})`);
+  const data = await res.json() as { display_name?: string };
+  return {
+    name: data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+    displayName: data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+    latitude,
+    longitude,
+    timezone: 330,
+  };
+}
+
+/** Wraps the browser Geolocation API in a Promise. Rejects on denial/timeout. */
+export function getBrowserLocation(): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation is not available in this browser.'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000, maximumAge: 600000 });
+  });
+}

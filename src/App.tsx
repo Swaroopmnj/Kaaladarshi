@@ -41,7 +41,7 @@ import { getBhadraDayVerdict } from './lib/bhadra';
 import { SOUTH_INDIAN_GRID, planetAbbr, RASHI_DEVANAGARI } from './lib/southIndianChart';
 import { runMuhurtaSearch, describeTara, type EnrichedDay } from './lib/search';
 import { localDateAtMidnight, localDateTime, toRealInstant, DISPLAY_TZ, REAL_TZ, isNextCalendarDay } from './lib/dateUtils';
-import { searchIndiaPlaces, type IndiaPlaceResult } from './lib/locationSearch';
+import { searchIndiaPlaces, reverseGeocodeIndia, getBrowserLocation, type IndiaPlaceResult } from './lib/locationSearch';
 import './App.css';
 
 function fmtDate(d: Date) {
@@ -176,11 +176,26 @@ function IndiaLocationSearch({ onPick }: { onPick: (place: IndiaPlaceResult) => 
   const [results, setResults] = useState<IndiaPlaceResult[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [locating, setLocating] = useState(false);
   async function search() {
     setBusy(true); setError('');
     try { setResults(await searchIndiaPlaces(q)); }
     catch (e) { setError(e instanceof Error ? e.message : 'Location search failed'); }
     finally { setBusy(false); }
+  }
+  async function useMyLocation() {
+    setLocating(true); setError('');
+    try {
+      const pos = await getBrowserLocation();
+      const place = await reverseGeocodeIndia(pos.coords.latitude, pos.coords.longitude);
+      onPick(place);
+      setQ(place.displayName);
+      setResults([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not detect your location — search manually instead.');
+    } finally {
+      setLocating(false);
+    }
   }
   return (
     <div className="india-location-search">
@@ -188,6 +203,7 @@ function IndiaLocationSearch({ onPick }: { onPick: (place: IndiaPlaceResult) => 
       <div className="inline-fields">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. Amalapuram, Konaseema" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void search(); } }} />
         <button type="button" className="secondary" disabled={busy || q.trim().length < 2} onClick={() => void search()}>{busy ? 'Searching…' : 'Search'}</button>
+        <button type="button" className="secondary" disabled={locating} onClick={() => void useMyLocation()}>{locating ? 'Locating…' : '📍 Use my location'}</button>
       </div>
       {error && <small className="bad">{error}</small>}
       {results.length > 0 && <div className="place-results">{results.map((r, i) => (
@@ -265,10 +281,10 @@ export default function App() {
   const [groomNakshatraIdx, setGroomNakshatraIdx] = useState(0);
   const [groomRashiIdx, setGroomRashiIdx] = useState(0);
   const [manualStarMode, setManualStarMode] = useState(false);
+  const [knowledgeMode, setKnowledgeMode] = useState<'birth' | 'star' | 'name' | null>(null);
   const [brideNakshatraIdx, setBrideNakshatraIdx] = useState(0);
   const [brideRashiIdx, setBrideRashiIdx] = useState(0);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
-  const [reportCharts] = useState<Record<string, BirthChart>>({});
   const [selectedFullReport, setSelectedFullReport] = useState<{ key: string; day: EnrichedDay; city: ReturnType<typeof resolveCity>; activityKey: string; activityLabel: string } | null>(null);
 
   const [kundaliDate, setKundaliDate] = useState('');
@@ -525,6 +541,7 @@ export default function App() {
             <div className="field">
               <label>Location</label>
               <p className="current-location">📍 {pCity.name}</p>
+              {pCityIdx !== CUSTOM_LOCATION_INDEX && <small className="hint-inline">Defaulted to Hyderabad — click "Use my location" below or search your actual city, since tithi/nakṣatra/muhūrta times shift with location.</small>}
             </div>
           </div>
           <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setPCityIdx(CUSTOM_LOCATION_INDEX); }} />
@@ -877,23 +894,32 @@ export default function App() {
       {tab === 'personal' && (
         <>
         <section className="panel form-panel">
-          <p className="sub-label">Enter your birth details to compute your Nakshatra, Rāśi and Lagna, which then personalise every search below.</p>
+          <p className="sub-label">Step 1 — Activity &amp; location</p>
+          <div className="field">
+            <label>Activity (Muhūrta)</label>
+            <select value={isVivah && knowledgeMode !== 'star' ? 'vivah-blocked' : activityKey} onChange={(e) => setActivityKey(e.target.value)}>
+              {ACTIVITIES.filter((a) => a.key !== 'vivah' || knowledgeMode === 'star').map((a) => (
+                <option key={a.key} value={a.key}>{a.label}</option>
+              ))}
+            </select>
+            {isVivah && knowledgeMode !== 'star' && <p className="hint">Marriage needs both partners' Nakṣatra/Rāśi — pick "I know my Nakṣatra &amp; Rāśi" below to unlock it (birth-detail mode is single-person only for now).</p>}
+          </div>
           <div className="field-row">
             <div className="field">
-              <label>Birth Date</label>
-              <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+              <label>From</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div className="field">
-              <label>Birth Time</label>
-              <input type="time" value={birthTime} onChange={(e) => setBirthTime(e.target.value)} />
+              <label>To</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
           <div className="field">
-            <label>Birth Place</label>
-            <p className="current-location">📍 {resolveCity(birthCityIdx, customLat, customLng).name}</p>
+            <label>Location of the event</label>
+            <p className="current-location">📍 {city.name}</p>
           </div>
-          <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setBirthCityIdx(CUSTOM_LOCATION_INDEX); }} />
-          {birthCityIdx === CUSTOM_LOCATION_INDEX && (
+          <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setCityIdx(CUSTOM_LOCATION_INDEX); }} />
+          {cityIdx === CUSTOM_LOCATION_INDEX && (
             <div className="field-row">
               <div className="field">
                 <label>Latitude</label>
@@ -905,34 +931,77 @@ export default function App() {
               </div>
             </div>
           )}
-          <button className="primary" onClick={computeBirthChart}>Compute My Chart</button>
-          {birthError && <p className="error">{birthError}</p>}
+        </section>
 
-          {birthChart && (
-            <div className="verdict-card good">
-              <h4>Your birth chart</h4>
-              <ul className="reasons">
-                <li>Nakshatra: {birthChart.nakshatra} (pada {birthChart.pada})</li>
-                <li>Rāśi (Moon sign): {birthChart.rashi}</li>
-                <li>Lagna (Ascendant): {birthChart.lagna}</li>
-              </ul>
-              <p className="hint">
-                This is a quick summary (Nakṣatra/Rāśi/Lagna only). For your full birth chart — Rāśi
-                (D1) and Navāṁśa (D9) charts, every planet's house, and your Vimśottari Daśā — generate
-                it in the <button type="button" className="link-button" onClick={() => setTab('kundali')}>Kundali tab</button>.
-                Once generated, muhurat searches here and the Full Muhurat Report will also cross-check
-                candidate Lagnas against your own natal Lagna for a more precise result.
-              </p>
+        <section className="panel form-panel">
+          <p className="sub-label">Step 2 — What do you know about yourself{isVivah ? ' (and your partner)' : ''}?</p>
+          <div className="knowledge-choice">
+            <button type="button" className={`choice-btn ${knowledgeMode === 'birth' ? 'active' : ''}`} onClick={() => { setKnowledgeMode('birth'); setManualStarMode(false); }} disabled={isVivah}>
+              📅 I know exact birth date, time &amp; place
+            </button>
+            <button type="button" className={`choice-btn ${knowledgeMode === 'star' ? 'active' : ''}`} onClick={() => { setKnowledgeMode('star'); setManualStarMode(true); }}>
+              ✨ I only know Nakṣatra &amp; Rāśi
+            </button>
+            <button type="button" className={`choice-btn ${knowledgeMode === 'name' ? 'active' : ''}`} onClick={() => { setKnowledgeMode('name'); setManualStarMode(false); }}>
+              🤷 I don't know either
+            </button>
+          </div>
+          {isVivah && <p className="hint">For marriage, only the Nakṣatra/Rāśi option is available right now, since it lets us take both partners' details.</p>}
+
+          {knowledgeMode === 'birth' && (
+            <div className="wizard-step">
+              <div className="field-row">
+                <div className="field">
+                  <label>Birth Date</label>
+                  <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label>Birth Time</label>
+                  <input type="time" value={birthTime} onChange={(e) => setBirthTime(e.target.value)} />
+                </div>
+              </div>
+              <div className="field">
+                <label>Birth Place</label>
+                <p className="current-location">📍 {resolveCity(birthCityIdx, customLat, customLng).name}</p>
+              </div>
+              <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setBirthCityIdx(CUSTOM_LOCATION_INDEX); }} />
+              {birthCityIdx === CUSTOM_LOCATION_INDEX && (
+                <div className="field-row">
+                  <div className="field">
+                    <label>Latitude</label>
+                    <input type="number" step="0.0001" value={customLat} onChange={(e) => setCustomLat(Number(e.target.value))} />
+                  </div>
+                  <div className="field">
+                    <label>Longitude</label>
+                    <input type="number" step="0.0001" value={customLng} onChange={(e) => setCustomLng(Number(e.target.value))} />
+                  </div>
+                </div>
+              )}
+              <button className="primary" onClick={computeBirthChart}>Compute My Chart</button>
+              {birthError && <p className="error">{birthError}</p>}
+
+              {birthChart && (
+                <div className="verdict-card good">
+                  <h4>Your birth chart</h4>
+                  <ul className="reasons">
+                    <li>Nakshatra: {birthChart.nakshatra} (pada {birthChart.pada})</li>
+                    <li>Rāśi (Moon sign): {birthChart.rashi}</li>
+                    <li>Lagna (Ascendant): {birthChart.lagna}</li>
+                  </ul>
+                  <p className="hint">
+                    This is a quick summary. For your full birth chart — Rāśi (D1) and Navāṁśa (D9)
+                    charts, every planet's house, and your Vimśottari Daśā — generate it in the{' '}
+                    <button type="button" className="link-button" onClick={() => setTab('kundali')}>Kundali tab</button>.
+                    Once generated, searches here and the Full Muhurat Report will also cross-check
+                    candidate Lagnas against your own natal Lagna.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
-          <label className="checkbox-field">
-            <input type="checkbox" checked={manualStarMode} onChange={(e) => setManualStarMode(e.target.checked)} />
-            Don't know your exact birth time? Enter your Nakṣatra/Rāśi directly instead (also needed for marriage matching)
-          </label>
-
-          {manualStarMode && isVivah ? (
-            <>
+          {knowledgeMode === 'star' && isVivah && (
+            <div className="wizard-step">
               <div className="field-row">
                 <div className="field">
                   <label>Groom's Nakshatra</label>
@@ -973,75 +1042,63 @@ export default function App() {
                   </ul>
                 </div>
               )}
-            </>
-          ) : manualStarMode ? (
-            <div className="field-row">
-              <div className="field">
-                <label>Nakshatra</label>
-                <select value={nakshatraIdx} onChange={(e) => setNakshatraIdx(Number(e.target.value))}>
-                  {NAKSHATRAS.map((n, i) => (
-                    <option key={n} value={i}>{n}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label>Rāśi (Moon sign)</label>
-                <select value={rashiIdx} onChange={(e) => setRashiIdx(Number(e.target.value))}>
-                  {RASHIS.map((r, i) => (
-                    <option key={r} value={i}>{r}</option>
-                  ))}
-                </select>
-              </div>
             </div>
-          ) : null}
-        </section>
+          )}
 
-        {(birthChart || manualStarMode) && (
-          <>
-            <section className="panel form-panel">
-              <div className="field">
-                <label>Activity (Muhūrta)</label>
-                <select value={isVivah && !manualStarMode ? 'vivah-blocked' : activityKey} onChange={(e) => setActivityKey(e.target.value)}>
-                  {ACTIVITIES.filter((a) => a.key !== 'vivah' || manualStarMode).map((a) => (
-                    <option key={a.key} value={a.key}>{a.label}</option>
-                  ))}
-                </select>
-                <p className="hint">Marriage isn't listed here since it needs both partners' details — use the Muhurat Finder tab for that (your details are pre-filled there).</p>
-              </div>
+          {knowledgeMode === 'star' && !isVivah && (
+            <div className="wizard-step">
               <div className="field-row">
                 <div className="field">
-                  <label>From</label>
-                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  <label>Nakshatra</label>
+                  <select value={nakshatraIdx} onChange={(e) => setNakshatraIdx(Number(e.target.value))}>
+                    {NAKSHATRAS.map((n, i) => (
+                      <option key={n} value={i}>{n}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="field">
-                  <label>To</label>
-                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                  <label>Rāśi (Moon sign)</label>
+                  <select value={rashiIdx} onChange={(e) => setRashiIdx(Number(e.target.value))}>
+                    {RASHIS.map((r, i) => (
+                      <option key={r} value={i}>{r}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
-              <div className="field">
-                <label>Location for the event</label>
-                <p className="current-location">📍 {city.name}</p>
+            </div>
+          )}
+
+          {knowledgeMode === 'name' && (
+            <div className="wizard-step">
+              <div className="verdict-card blocked">
+                <h4>Nāma Nakṣatra estimator — not available yet</h4>
+                <p>
+                  Traditionally, the first syllable of a name was chosen from a fixed 108-syllable
+                  table tied to your birth Nakṣatra's pāda, so an old-fashioned name can hint at your
+                  Nakṣatra. We haven't added this yet — we'd rather source the syllable table properly
+                  than guess at something used for real personal decisions.
+                </p>
+                <p className="hint">
+                  In the meantime: check an old family horoscope document, ask family members who may
+                  remember, or contact the temple/registrar where your Nāmakaraṇa (naming ceremony) was
+                  performed. You can also proceed with a general (non-personalised) search on the{' '}
+                  <button type="button" className="link-button" onClick={() => setTab('finder')}>Muhurat Finder</button> tab meanwhile.
+                </p>
               </div>
-              <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setCityIdx(CUSTOM_LOCATION_INDEX); }} />
-              {cityIdx === CUSTOM_LOCATION_INDEX && (
-                <div className="field-row">
-                  <div className="field">
-                    <label>Latitude</label>
-                    <input type="number" step="0.0001" value={customLat} onChange={(e) => setCustomLat(Number(e.target.value))} />
-                  </div>
-                  <div className="field">
-                    <label>Longitude</label>
-                    <input type="number" step="0.0001" value={customLng} onChange={(e) => setCustomLng(Number(e.target.value))} />
-                  </div>
-                </div>
-              )}
-              <button className="primary" onClick={runSearch} disabled={loading || (isVivah && !manualStarMode)}>
+            </div>
+          )}
+        </section>
+
+        {((knowledgeMode === 'birth' && birthChart) || (knowledgeMode === 'star' && (!isVivah || (ashtakoot !== null)))) && (
+          <>
+            <section className="panel form-panel">
+              <button className="primary" onClick={runSearch} disabled={loading}>
                 {loading ? 'Calculating…' : 'Find My Personalised Muhurats'}
               </button>
               {error && <p className="error">{error}</p>}
             </section>
 
-            {results && (!isVivah || manualStarMode) && (
+            {results && (
               <section className="panel results-panel">
                 <h2>{activity.label} — {results.length} candidate date{results.length === 1 ? '' : 's'} personalised to your chart</h2>
                 {results.length === 0 && <p>No dates in this range passed the base Panchāṅga rule. Try widening the range.</p>}
@@ -1135,24 +1192,6 @@ export default function App() {
                               </ul>
                             )}
                             <button className="secondary" onClick={(e) => { e.stopPropagation(); openFullReport(key, r, city); }}>📋 Open Full Muhurat Report</button>
-                            {reportCharts[key] && (
-                              <div className="report-block" onClick={(e) => e.stopPropagation()}>
-                                <h4>Full Report — {fmtDate(r.raw.date)}</h4>
-                                <p className="sub-label">Chart cast for the first surviving Lagna window's start time ({windows[0] ? fmtWindow(windows[0], r.raw.panchang.sunrise) : 'day sunrise'}), {city.name}.</p>
-                                <div className="report-grid">
-                                  <SouthIndianChart lagnaRashiIndex={reportCharts[key].lagna.rashi.index} planets={reportCharts[key].planets} />
-                                  <div className="report-text">
-                                    <p><strong>Lagna:</strong> {reportCharts[key].lagna.rashi.name} ({reportCharts[key].lagna.degreeInRashi.toFixed(1)}°), {reportCharts[key].lagna.nakshatra.name} pada {reportCharts[key].lagna.pada}</p>
-                                    <p><strong>Tier:</strong> {tierLabelShort(r.tier)}</p>
-                                    <ul className="reasons">
-                                      {reportCharts[key].planets.map((pl) => (
-                                        <li key={pl.planet}>{pl.planet}: {pl.rashi.name} {pl.degreeInRashi.toFixed(1)}° (house {pl.house}){pl.isRetrograde ? ' (R)' : ''}</li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         )}
                       </article>
