@@ -603,7 +603,10 @@ export default function App() {
       <nav className="tabs">
         <button className={tab === 'panchang' ? 'active' : ''} onClick={() => setTab('panchang')}>Today's Panchāṅga</button>
         <button className={tab === 'finder' ? 'active' : ''} onClick={() => setTab('finder')}>Muhurat Finder</button>
-        <button className={tab === 'personal' ? 'active' : ''} onClick={() => setTab('personal')}>Personalised Muhurat</button>
+        <button className={tab === 'personal' && isVivah ? 'active' : ''} onClick={() => { setTab('personal'); setActivityKey('vivah'); setKnowledgeMode(null); }}>💑 Vivāha Muhūrat</button>
+        <button className={tab === 'personal' && activityKey === 'grihaPravesh' ? 'active' : ''} onClick={() => { setTab('personal'); setActivityKey('grihaPravesh'); setKnowledgeMode(null); }}>🏠 Griha Pravesh Muhūrat</button>
+        <button className={tab === 'personal' && isUpanayanam ? 'active' : ''} onClick={() => { setTab('personal'); setActivityKey('upanayanam'); setKnowledgeMode(null); }}>🕉️ Upanayanam Muhūrat</button>
+        <button className={tab === 'personal' && !isVivah && !isUpanayanam && activityKey !== 'grihaPravesh' ? 'active' : ''} onClick={() => { setTab('personal'); setKnowledgeMode(null); }}>Personalised Muhurat (other)</button>
         <button className={tab === 'kundali' ? 'active' : ''} onClick={() => setTab('kundali')}>Kundali</button>
       </nav>
 
@@ -1034,8 +1037,8 @@ export default function App() {
             <div className="wizard-step">
               {isVivah && (
                 <div className="activity-dedicated-header">
-                  <h3>💑 Vivāha Muhūrta — both partners' birth details</h3>
-                  <p className="sub-label">We need both sets, since marriage is a joint decision.</p>
+                  <h3>💑 Vivāha Muhūrta — birth details</h3>
+                  <p className="sub-label">Both partners' details give the fullest picture (including Aṣṭakūṭa Guṇa Milan compatibility) — but if you only want to check for one of you, that's fine too, just compute that one chart and search below.</p>
                 </div>
               )}
               <p className="sub-label">{isVivah ? "Groom's birth details" : 'Birth details'}</p>
@@ -1356,7 +1359,7 @@ export default function App() {
           )}
         </section>
 
-        {((knowledgeMode === 'birth' && (isVivah ? (birthChart && brideBirthChart) : birthChart)) || (knowledgeMode === 'star' && (!isVivah || (ashtakoot !== null))) || (knowledgeMode === 'name' && !!namaSelected)) && (
+        {((knowledgeMode === 'birth' && (isVivah ? (birthChart || brideBirthChart) : birthChart)) || (knowledgeMode === 'star' && (!isVivah || (ashtakoot !== null))) || (knowledgeMode === 'name' && !!namaSelected)) && (
           <>
             <section className="panel form-panel">
               <button className="primary" onClick={runSearch} disabled={loading}>
