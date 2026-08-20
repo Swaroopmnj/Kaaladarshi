@@ -14,7 +14,7 @@ import {
   DAKSHINAYANA_WARN,
   DAKSHINAYANA_HARD_BLOCK,
   CHATURMASA_MASAS,
-  CHATURMASA_BLOCKED_ACTIVITIES,
+  CHATURMASA_WARN_ACTIVITIES,
   KARTIKA_DAKSHINAYANA_EXCEPTION,
 } from './ayana';
 import { getMudhaStatus, SHUKRA_MUDHA_SENSITIVE, GURU_MUDHA_SENSITIVE } from './mudha';
@@ -51,7 +51,7 @@ export interface EnrichedDay {
   bhadraBlocked: boolean;
   bhadraNote: string;
   ayanaHardBlocked: boolean;
-  chaturmasaBlocked: boolean;
+  chaturmasaWarn: boolean;
   autoDoshaHits: string[];
   ayanaWarn?: string;
   ayana: 'Uttarayana' | 'Dakshinayana';
@@ -133,7 +133,7 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
     const inKartikaException = p.activityKey === 'grihaPravesh' && KARTIKA_DAKSHINAYANA_EXCEPTION.has(p.activityKey) && panchang.chandramasa.name === 'Kartika';
     const ayanaHardBlocked = ayana === 'Dakshinayana' && DAKSHINAYANA_HARD_BLOCK.has(p.activityKey);
     const ayanaWarn = ayana === 'Dakshinayana' && !inKartikaException && !ayanaHardBlocked ? DAKSHINAYANA_WARN[p.activityKey]?.note : undefined;
-    const chaturmasaBlocked = CHATURMASA_MASAS.has(panchang.chandramasa.name) && CHATURMASA_BLOCKED_ACTIVITIES.has(p.activityKey);
+    const chaturmasaWarn = CHATURMASA_MASAS.has(panchang.chandramasa.name) && CHATURMASA_WARN_ACTIVITIES.has(p.activityKey);
 
     const shukraMudhaWarn = mudha.shukraMudha && SHUKRA_MUDHA_SENSITIVE.has(p.activityKey);
     const guruMudhaWarn = mudha.guruMudha && GURU_MUDHA_SENSITIVE.has(p.activityKey);
@@ -184,7 +184,7 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
     if (verdict.blocked) finalScore = Math.max(0, finalScore - 40);
     // Bhadrā is interval-based: never deduct/reject the entire day here.
     if (ayanaHardBlocked) finalScore = 0;
-    if (chaturmasaBlocked) finalScore = 0;
+    if (chaturmasaWarn) finalScore = Math.max(0, finalScore - 25);
     if (taraNote?.includes('inauspicious')) finalScore = Math.max(0, finalScore - 15);
     if (chandraNote?.includes('weak')) finalScore = Math.max(0, finalScore - 10);
 
@@ -231,8 +231,14 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
 
     if (ayanaHardBlocked) {
       // No compromises entry needed — this is reflected directly as 'rejected' below.
-    } else if (chaturmasaBlocked) {
-      // Also reflected as 'rejected' below.
+    } else if (chaturmasaWarn) {
+      compromises.push(
+        `Falls within Chaturmās (Viṣṇu's yogic sleep, Āṣāḍha–Āśvina) — thumb rule: new-beginning ceremonies are traditionally paused during this period. Treated as a warning, not a block: PanchangBodh's Chaturmās guide states "some regional traditions permit vivāh under specific conditions... consult your family pandit," and rules generally "vary by family and regional tradition." Weigh this against your own family/regional custom.`,
+      );
+      if (inKartikaException) clearedChecks.push('Ayana: Dakshinayana, but Kartika Masa is the classical exception window for Griha Pravesh — treated as fine.');
+      else if (ayanaWarn) compromises.push(`Dakshinayana — thumb rule: ${ayanaWarn}`);
+      else if (ayana === 'Uttarayana') clearedChecks.push('Ayana: Uttarayana');
+      else clearedChecks.push('Ayana: Dakshinayana (no restriction applies to this activity)');
     } else if (inKartikaException) {
       clearedChecks.push('Ayana: Dakshinayana, but Kartika Masa is the classical exception window for Griha Pravesh — treated as fine.');
     } else if (ayanaWarn) {
@@ -289,9 +295,6 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
     } else if (ayanaHardBlocked) {
       tier = 'rejected';
       tierNote = DAKSHINAYANA_WARN[p.activityKey]?.note ?? 'Blocked: Dakshinayana, and this activity has no Dakshinayana exception.';
-    } else if (chaturmasaBlocked) {
-      tier = 'rejected';
-      tierNote = 'Falls within Chaturmas (Vishnu\'s yogic sleep, Ashadha–Ashwina) — Vivaha, Griha Pravesh, and Upanayanam are traditionally paused entirely during this window.';
     } else if (verdict.blocked || !d.passes) {
       tier = 'rejected';
       tierNote = 'Fails a configured hard exclusion (for example eclipse/Adhika Māsa/severe Gaṇḍānta/earthly Bhadra) or the base activity rule. Panchaka Rahita is evaluated separately at exact candidate times.';
@@ -311,7 +314,7 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
       bhadraBlocked: false,
       bhadraNote: bhadraVerdict.note,
       ayanaHardBlocked,
-      chaturmasaBlocked,
+      chaturmasaWarn,
       autoDoshaHits,
       ayanaWarn,
       ayana,

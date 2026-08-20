@@ -31,7 +31,7 @@ import {
   DAKSHINAYANA_WARN,
   DAKSHINAYANA_HARD_BLOCK,
   CHATURMASA_MASAS,
-  CHATURMASA_BLOCKED_ACTIVITIES,
+  CHATURMASA_WARN_ACTIVITIES,
   KARTIKA_DAKSHINAYANA_EXCEPTION,
 } from './lib/ayana';
 import { getMudhaStatus, SHUKRA_MUDHA_SENSITIVE, GURU_MUDHA_SENSITIVE } from './lib/mudha';
@@ -452,7 +452,7 @@ export default function App() {
       const bhadraVerdict = getBhadraDayVerdict(panchang);
       const inKartikaException = a.key === 'grihaPravesh' && KARTIKA_DAKSHINAYANA_EXCEPTION.has(a.key) && panchang.chandramasa.name === 'Kartika';
       const ayanaHardBlocked = dayContext.ayana === 'Dakshinayana' && DAKSHINAYANA_HARD_BLOCK.has(a.key);
-      const chaturmasaBlocked = CHATURMASA_MASAS.has(panchang.chandramasa.name) && CHATURMASA_BLOCKED_ACTIVITIES.has(a.key);
+      const chaturmasaWarn = CHATURMASA_MASAS.has(panchang.chandramasa.name) && CHATURMASA_WARN_ACTIVITIES.has(a.key);
       const dWarn = dayContext.ayana === 'Dakshinayana' && !inKartikaException && !ayanaHardBlocked ? DAKSHINAYANA_WARN[a.key] : undefined;
       let kalasaChakraShuddhi: boolean | undefined;
       let vrishabhaChakraShuddhi: boolean | undefined;
@@ -468,7 +468,7 @@ export default function App() {
       return {
         key: a.key,
         label: a.label,
-        available: score.passes && !verdict.blocked && !ayanaHardBlocked && !chaturmasaBlocked && lagnaWindows.length > 0,
+        available: score.passes && !verdict.blocked && !ayanaHardBlocked && lagnaWindows.length > 0,
         score,
         panchakaBlocked: verdict.blocked,
         panchakaNote: verdict.note,
@@ -476,8 +476,8 @@ export default function App() {
         bhadraNote: bhadraVerdict.note,
         ayanaWarn: ayanaHardBlocked
           ? DAKSHINAYANA_WARN[a.key]?.note
-          : chaturmasaBlocked
-            ? 'Falls within Chaturmas — Vivaha, Griha Pravesh, and Upanayanam are traditionally paused entirely during this window.'
+          : chaturmasaWarn
+            ? 'Falls within Chaturmās — traditionally paused, but treated as a warning here since regional practice varies (some traditions permit it; "consult your family pandit" per most sources).'
             : dWarn?.note,
         shukraMudhaWarn: dayContext.mudha.shukraMudha && SHUKRA_MUDHA_SENSITIVE.has(a.key),
         guruMudhaWarn: dayContext.mudha.guruMudha && GURU_MUDHA_SENSITIVE.has(a.key),
@@ -892,7 +892,7 @@ export default function App() {
                     <li className={r.panchakaBlocked ? 'bad' : ''}>{r.panchakaNote}</li>
                     <li className={r.bhadraBlocked ? 'bad' : ''}>{r.bhadraNote}</li>
                     {r.ayanaHardBlocked && <li className="bad">🚫 {r.tierNote}</li>}
-                    {r.chaturmasaBlocked && <li className="bad">🚫 {r.tierNote}</li>}
+                    {r.chaturmasaWarn && <li className="warn">⚠️ Falls within Chaturmās — treated as a warning, see the compromises list below for the full note.</li>}
                     {r.autoDoshaHits.map((h, i) => <li key={`d${i}`} className="bad">{h}</li>)}
                     {r.ayanaWarn && <li className="warn">⚠️ {r.ayanaWarn}</li>}
                     {r.shukraMudhaWarn && <li className="warn">⚠️ Shukra Mudha active (Venus combust) — classically avoided for this activity.</li>}
@@ -1392,7 +1392,7 @@ export default function App() {
                           <li className={r.panchakaBlocked ? 'bad' : ''}>{r.panchakaNote}</li>
                           <li className={r.bhadraBlocked ? 'bad' : ''}>{r.bhadraNote}</li>
                           {r.ayanaHardBlocked && <li className="bad">🚫 {r.tierNote}</li>}
-                          {r.chaturmasaBlocked && <li className="bad">🚫 {r.tierNote}</li>}
+                          {r.chaturmasaWarn && <li className="warn">⚠️ Falls within Chaturmās — treated as a warning, see the compromises list below for the full note.</li>}
                           {r.ayanaWarn && <li className="warn">⚠️ {r.ayanaWarn}</li>}
                           {r.shukraMudhaWarn && <li className="warn">⚠️ Shukra Mudha active (Venus combust).</li>}
                           {r.guruMudhaWarn && <li className="warn">⚠️ Guru Mudha active (Jupiter combust).</li>}

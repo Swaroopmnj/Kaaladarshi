@@ -53,13 +53,25 @@ export const DAKSHINAYANA_WARN: Record<string, { strength: 'strict' | 'regional'
 // Chaturmas — the ~4 lunar months (Devshayani Ekadashi in Ashadha to
 // Prabodhini Ekadashi in Kartika) during which Vishnu is in yogic sleep.
 // New-beginning ceremonies (Vivaha, Griha Pravesh, Upanayanam) are
-// traditionally paused entirely. Approximated here at whole-lunar-month
-// granularity (Ashadha–Ashwina) rather than the precise Ekadashi-to-Ekadashi
-// boundary, since exact Ekadashi timing needs separate tithi lookups this
-// build doesn't yet do — this may be a few days wider than the precise
-// classical window at each end.
+// traditionally paused during Chaturmas. Approximated here at whole-lunar-
+// month granularity (Ashadha–Ashwina) rather than the precise Ekadashi-to-
+// Ekadashi boundary, since exact Ekadashi timing needs separate tithi
+// lookups this build doesn't yet do — this may be a few days wider than the
+// precise classical window at each end.
+//
+// TREATED AS A WARNING, NOT A HARD BLOCK — verified this is the right call
+// after user pushback ("many people are generally not following this").
+// Checked directly: PanchangBodh's Chaturmas guide states "some regional
+// traditions permit vivah under specific conditions... consult your family
+// pandit," and another source notes the rules "vary by family and regional
+// tradition — the underlying spirit matters more than rigid observance."
+// This mirrors exactly how Vivaha's Dakshinayana avoidance is already
+// handled (regional preference, not universal) — Chaturmas gets the same
+// treatment for all three activities, since no source was found singling
+// any one of them out as absolute/zero-tolerance the way Upanayanam's
+// Dakshinayana rule specifically was.
 export const CHATURMASA_MASAS = new Set(['Ashadha', 'Shravana', 'Bhadrapada', 'Ashwina']);
-export const CHATURMASA_BLOCKED_ACTIVITIES = new Set(['vivah', 'grihaPravesh', 'upanayanam']);
+export const CHATURMASA_WARN_ACTIVITIES = new Set(['vivah', 'grihaPravesh', 'upanayanam']);
 
 // Within Dakshinayana, Kartika Masa (right after Chaturmas ends) is
 // classically the one masa still considered good for Griha Pravesh despite
