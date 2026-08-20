@@ -264,7 +264,7 @@ export default function App() {
   const [rashiIdx, setRashiIdx] = useState(0);
   const [groomNakshatraIdx, setGroomNakshatraIdx] = useState(0);
   const [groomRashiIdx, setGroomRashiIdx] = useState(0);
-  const [usePersonalisation, setUsePersonalisation] = useState(false);
+  const [manualStarMode, setManualStarMode] = useState(false);
   const [brideNakshatraIdx, setBrideNakshatraIdx] = useState(0);
   const [brideRashiIdx, setBrideRashiIdx] = useState(0);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
@@ -311,12 +311,12 @@ export default function App() {
 
   const isVivah = activityKey === 'vivah';
   const ashtakoot: AshtakootResult | null = useMemo(() => {
-    if (!isVivah || !usePersonalisation) return null;
+    if (!isVivah || !manualStarMode) return null;
     return computeAshtakoot(
       { rashi: groomRashiIdx, nakshatra: groomNakshatraIdx },
       { rashi: brideRashiIdx, nakshatra: brideNakshatraIdx },
     );
-  }, [isVivah, usePersonalisation, groomRashiIdx, groomNakshatraIdx, brideRashiIdx, brideNakshatraIdx]);
+  }, [isVivah, manualStarMode, groomRashiIdx, groomNakshatraIdx, brideRashiIdx, brideNakshatraIdx]);
 
   const [customLat, setCustomLat] = useState(20.0);
   const [customLng, setCustomLng] = useState(78.0);
@@ -424,7 +424,7 @@ export default function App() {
         endDate,
         city,
         isVivah,
-        personalize: tab === 'personal' ? true : usePersonalisation,
+        personalize: tab === 'personal',
         nakshatraIdx,
         rashiIdx,
         groomNakshatraIdx,
@@ -491,11 +491,9 @@ export default function App() {
 
       <section className="tribute-strip" aria-label="With reverence">
         <div className="tribute-item">
-          <svg viewBox="0 0 44 44" className="tribute-icon"><path d="M22 4 L16 12 M22 4 L28 12 M22 4 L22 14" stroke="var(--accent-dark)" strokeWidth="2" fill="none" strokeLinecap="round"/><line x1="22" y1="14" x2="22" y2="34" stroke="var(--accent-dark)" strokeWidth="2"/><ellipse cx="22" cy="24" rx="7" ry="4" stroke="var(--accent-dark)" strokeWidth="1.6" fill="none"/><path d="M15 24 Q22 20 29 24" stroke="var(--accent-dark)" strokeWidth="1.2" fill="none"/><path d="M13 8 A5 5 0 0 1 20 6" stroke="var(--accent-dark)" strokeWidth="1.6" fill="none" strokeLinecap="round"/></svg>
           <span>महाकाल<br/><small>Lord of Time</small></span>
         </div>
         <div className="tribute-item">
-          <svg viewBox="0 0 44 44" className="tribute-icon"><text x="22" y="24" fontSize="20" textAnchor="middle" fill="var(--accent-dark)" fontFamily="serif">ॐ</text><path d="M22 30 Q18 34 22 38 Q26 34 22 30 Z" stroke="var(--accent-dark)" strokeWidth="1.4" fill="none"/></svg>
           <span>गणेश<br/><small>Patron of the Art</small></span>
         </div>
         <div className="tribute-item">
@@ -503,11 +501,9 @@ export default function App() {
           <span>सूर्य<br/><small>Sūrya Siddhānta</small></span>
         </div>
         <div className="tribute-item">
-          <svg viewBox="0 0 44 44" className="tribute-icon">{Array.from({length:8}).map((_,i)=>{const a=(i*45)*Math.PI/180;const x=22+10*Math.sin(a),y=22-10*Math.cos(a);return <ellipse key={i} cx={x} cy={y} rx="4" ry="7" transform={`rotate(${i*45} ${x} ${y})`} stroke="var(--accent-dark)" strokeWidth="1.2" fill="none"/>;})}<circle cx="22" cy="22" r="3" fill="var(--accent-dark)"/></svg>
           <span>बृहस्पति<br/><small>Guru of Jyotiṣa</small></span>
         </div>
         <div className="tribute-item">
-          <svg viewBox="0 0 44 44" className="tribute-icon"><path d="M14 30 Q14 20 22 20 Q30 20 30 30 Z" stroke="var(--accent-dark)" strokeWidth="1.6" fill="none"/><line x1="22" y1="20" x2="22" y2="10" stroke="var(--accent-dark)" strokeWidth="1.4"/><line x1="26" y1="20" x2="30" y2="10" stroke="var(--accent-dark)" strokeWidth="1.4" strokeLinecap="round"/><line x1="34" y1="8" x2="14" y2="34" stroke="var(--accent-dark)" strokeWidth="1.6" strokeLinecap="round"/></svg>
           <span>पराशर<br/><small>Father of Jyotiṣa</small></span>
         </div>
       </section>
@@ -516,7 +512,6 @@ export default function App() {
         <button className={tab === 'panchang' ? 'active' : ''} onClick={() => setTab('panchang')}>Today's Panchāṅga</button>
         <button className={tab === 'finder' ? 'active' : ''} onClick={() => setTab('finder')}>Muhurat Finder</button>
         <button className={tab === 'personal' ? 'active' : ''} onClick={() => setTab('personal')}>Personalised Muhurat</button>
-        <button className={tab === 'fullReport' ? 'active' : ''} onClick={() => setTab('fullReport')}>Full Muhurat Report</button>
         <button className={tab === 'kundali' ? 'active' : ''} onClick={() => setTab('kundali')}>Kundali</button>
       </nav>
 
@@ -764,74 +759,7 @@ export default function App() {
           </div>
         )}
 
-        <label className="checkbox-field">
-          <input type="checkbox" checked={usePersonalisation} onChange={(e) => setUsePersonalisation(e.target.checked)} />
-          Personalise with Nakshatra/Rāśi (optional — leave off for a general search)
-        </label>
-
-        {usePersonalisation && isVivah ? (
-          <>
-            <div className="field-row">
-              <div className="field">
-                <label>Groom's Nakshatra</label>
-                <select value={groomNakshatraIdx} onChange={(e) => setGroomNakshatraIdx(Number(e.target.value))}>
-                  {NAKSHATRAS.map((n, i) => <option key={n} value={i}>{n}</option>)}
-                </select>
-              </div>
-              <div className="field">
-                <label>Groom's Rāśi</label>
-                <select value={groomRashiIdx} onChange={(e) => setGroomRashiIdx(Number(e.target.value))}>
-                  {RASHIS.map((r, i) => <option key={r} value={i}>{r}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="field-row">
-              <div className="field">
-                <label>Bride's Nakshatra</label>
-                <select value={brideNakshatraIdx} onChange={(e) => setBrideNakshatraIdx(Number(e.target.value))}>
-                  {NAKSHATRAS.map((n, i) => <option key={n} value={i}>{n}</option>)}
-                </select>
-              </div>
-              <div className="field">
-                <label>Bride's Rāśi</label>
-                <select value={brideRashiIdx} onChange={(e) => setBrideRashiIdx(Number(e.target.value))}>
-                  {RASHIS.map((r, i) => <option key={r} value={i}>{r}</option>)}
-                </select>
-              </div>
-            </div>
-            {ashtakoot && (
-              <div className={`verdict-card ${ashtakoot.totalScore >= 18 ? 'good' : 'blocked'}`}>
-                <h4>Ashtakoot Guna Milan: {ashtakoot.totalScore}/36</h4>
-                <p className="sub-label">{ashtakoot.totalScore >= 18 ? 'Meets the commonly used 18/36 minimum threshold.' : 'Below the commonly used 18/36 minimum threshold.'}</p>
-                <ul className="reasons">
-                  {ashtakoot.koots.map((k) => (
-                    <li key={k.name}>{k.name}: {k.score}/{k.maxScore} — {k.description}</li>
-                  ))}
-                  {ashtakoot.cancellations.map((c, i) => <li key={`c${i}`}>Cancellation applied: {c}</li>)}
-                </ul>
-              </div>
-            )}
-          </>
-        ) : usePersonalisation ? (
-          <div className="field-row">
-            <div className="field">
-              <label>Nakshatra</label>
-              <select value={nakshatraIdx} onChange={(e) => setNakshatraIdx(Number(e.target.value))}>
-                {NAKSHATRAS.map((n, i) => (
-                  <option key={n} value={i}>{n}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>Rāśi (Moon sign)</label>
-              <select value={rashiIdx} onChange={(e) => setRashiIdx(Number(e.target.value))}>
-                {RASHIS.map((r, i) => (
-                  <option key={r} value={i}>{r}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        ) : null}
+        <p className="hint">This is a general search — no birth-star personalisation here. For Tārābala, Chandra Balam, Aṣṭakūṭa matching, and the Full Muhurat Report, use the <strong>Personalised Muhurat</strong> tab.</p>
 
         <button className="primary" onClick={runSearch} disabled={loading}>
           {loading ? 'Calculating…' : 'Find Auspicious Dates'}
@@ -934,34 +862,7 @@ export default function App() {
                           })}
                         </ul>
                       )}
-                      <button className="secondary" onClick={(e) => { e.stopPropagation(); openFullReport(key, r, city); }}>📋 Open Full Muhurat Report</button>
-                      {reportCharts[key] && (
-                        <div className="report-block" onClick={(e) => e.stopPropagation()}>
-                          <h4>Full Report — {activity.label}, {fmtDate(r.raw.date)}</h4>
-                          <p className="sub-label">Chart cast for the first surviving Lagna window's start time ({windows[0] ? fmtWindow(windows[0], r.raw.panchang.sunrise) : 'day sunrise'}), {city.name}.</p>
-                          <div className="report-grid">
-                            <SouthIndianChart lagnaRashiIndex={reportCharts[key].lagna.rashi.index} planets={reportCharts[key].planets} />
-                            <div className="report-text">
-                              <p><strong>Lagna:</strong> {reportCharts[key].lagna.rashi.name} ({reportCharts[key].lagna.degreeInRashi.toFixed(1)}°), {reportCharts[key].lagna.nakshatra.name} pada {reportCharts[key].lagna.pada}</p>
-                              <p><strong>Tier:</strong> {tierLabelShort(r.tier)}</p>
-                              <ul className="reasons">
-                                {reportCharts[key].planets.map((pl) => (
-                                  <li key={pl.planet}>{pl.planet}: {pl.rashi.name} {pl.degreeInRashi.toFixed(1)}° (house {pl.house}){pl.isRetrograde ? ' (R)' : ''}</li>
-                                ))}
-                              </ul>
-                              <h4>Phase 2 — Election-chart Mahādoṣa checks</h4>
-                              <ul className="reasons">
-                                {evaluateElectionMahadoshas(reportCharts[key]).map((d) => (
-                                  <li key={d.n} className={d.state === 'present' ? 'bad' : ''}>
-                                    <strong>#{d.n} {d.name}:</strong> {d.state === 'present' ? '❌ detected' : '✅ clear'} — {d.detail}
-                                  </li>
-                                ))}
-                              </ul>
-                              <p className="hint"><strong>Important:</strong> this layer detects the chart configuration only. It does not yet silently cancel a detected doṣa. Apavāda/doṣa-bhaṅga will be evaluated separately, with the activity and textual tradition shown explicitly.</p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                      <p className="hint">For the Full Muhurat Report (election-chart doṣas, per-Lagna verdicts), use the Personalised Muhurat tab.</p>
                     </div>
                   )}
                 </article>
@@ -1024,15 +925,84 @@ export default function App() {
               </p>
             </div>
           )}
+
+          <label className="checkbox-field">
+            <input type="checkbox" checked={manualStarMode} onChange={(e) => setManualStarMode(e.target.checked)} />
+            Don't know your exact birth time? Enter your Nakṣatra/Rāśi directly instead (also needed for marriage matching)
+          </label>
+
+          {manualStarMode && isVivah ? (
+            <>
+              <div className="field-row">
+                <div className="field">
+                  <label>Groom's Nakshatra</label>
+                  <select value={groomNakshatraIdx} onChange={(e) => setGroomNakshatraIdx(Number(e.target.value))}>
+                    {NAKSHATRAS.map((n, i) => <option key={n} value={i}>{n}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Groom's Rāśi</label>
+                  <select value={groomRashiIdx} onChange={(e) => setGroomRashiIdx(Number(e.target.value))}>
+                    {RASHIS.map((r, i) => <option key={r} value={i}>{r}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="field-row">
+                <div className="field">
+                  <label>Bride's Nakshatra</label>
+                  <select value={brideNakshatraIdx} onChange={(e) => setBrideNakshatraIdx(Number(e.target.value))}>
+                    {NAKSHATRAS.map((n, i) => <option key={n} value={i}>{n}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Bride's Rāśi</label>
+                  <select value={brideRashiIdx} onChange={(e) => setBrideRashiIdx(Number(e.target.value))}>
+                    {RASHIS.map((r, i) => <option key={r} value={i}>{r}</option>)}
+                  </select>
+                </div>
+              </div>
+              {ashtakoot && (
+                <div className={`verdict-card ${ashtakoot.totalScore >= 18 ? 'good' : 'blocked'}`}>
+                  <h4>Ashtakoot Guna Milan: {ashtakoot.totalScore}/36</h4>
+                  <p className="sub-label">{ashtakoot.totalScore >= 18 ? 'Meets the commonly used 18/36 minimum threshold.' : 'Below the commonly used 18/36 minimum threshold.'}</p>
+                  <ul className="reasons">
+                    {ashtakoot.koots.map((k) => (
+                      <li key={k.name}>{k.name}: {k.score}/{k.maxScore} — {k.description}</li>
+                    ))}
+                    {ashtakoot.cancellations.map((c, i) => <li key={`c${i}`}>Cancellation applied: {c}</li>)}
+                  </ul>
+                </div>
+              )}
+            </>
+          ) : manualStarMode ? (
+            <div className="field-row">
+              <div className="field">
+                <label>Nakshatra</label>
+                <select value={nakshatraIdx} onChange={(e) => setNakshatraIdx(Number(e.target.value))}>
+                  {NAKSHATRAS.map((n, i) => (
+                    <option key={n} value={i}>{n}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Rāśi (Moon sign)</label>
+                <select value={rashiIdx} onChange={(e) => setRashiIdx(Number(e.target.value))}>
+                  {RASHIS.map((r, i) => (
+                    <option key={r} value={i}>{r}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : null}
         </section>
 
-        {birthChart && (
+        {(birthChart || manualStarMode) && (
           <>
             <section className="panel form-panel">
               <div className="field">
                 <label>Activity (Muhūrta)</label>
-                <select value={isVivah ? 'vivah-blocked' : activityKey} onChange={(e) => setActivityKey(e.target.value)}>
-                  {ACTIVITIES.filter((a) => a.key !== 'vivah').map((a) => (
+                <select value={isVivah && !manualStarMode ? 'vivah-blocked' : activityKey} onChange={(e) => setActivityKey(e.target.value)}>
+                  {ACTIVITIES.filter((a) => a.key !== 'vivah' || manualStarMode).map((a) => (
                     <option key={a.key} value={a.key}>{a.label}</option>
                   ))}
                 </select>
@@ -1065,13 +1035,13 @@ export default function App() {
                   </div>
                 </div>
               )}
-              <button className="primary" onClick={runSearch} disabled={loading || isVivah}>
+              <button className="primary" onClick={runSearch} disabled={loading || (isVivah && !manualStarMode)}>
                 {loading ? 'Calculating…' : 'Find My Personalised Muhurats'}
               </button>
               {error && <p className="error">{error}</p>}
             </section>
 
-            {results && !isVivah && (
+            {results && (!isVivah || manualStarMode) && (
               <section className="panel results-panel">
                 <h2>{activity.label} — {results.length} candidate date{results.length === 1 ? '' : 's'} personalised to your chart</h2>
                 {results.length === 0 && <p>No dates in this range passed the base Panchāṅga rule. Try widening the range.</p>}
@@ -1204,7 +1174,7 @@ export default function App() {
               <p>Select a Muhūrta from the Finder or Personalised Muhurat list and click <strong>Open Full Muhurat Report</strong>.</p>
               <p className="sub-label">The public list remains broad. The full decision report is intentionally personalised.</p>
             </div>
-          ) : !(birthChart || usePersonalisation) ? (
+          ) : !(birthChart || manualStarMode) ? (
             <div className="report-block">
               <h3>Personal details required</h3>
               <p>To unlock the full decision report, provide either your birth details or your known Janma Nakṣatra and Chandra Rāśi. This is required for Tārābala, Chandrabala and natal-dependent Muhūrta checks.</p>
@@ -1258,7 +1228,7 @@ export default function App() {
               // the nakshatra that's really active then, not penalised for a nakshatra
               // that has already passed by the time this window occurs.
               const windowNakIdx = NAKSHATRAS.findIndex(n => activeNak.name.toLowerCase().startsWith(n.toLowerCase().slice(0, 6)));
-              const windowTara = usePersonalisation && windowNakIdx >= 0 ? computeTarabala(nakshatraIdx, windowNakIdx) : null;
+              const windowTara = (!!birthChart || manualStarMode) && windowNakIdx >= 0 ? computeTarabala(nakshatraIdx, windowNakIdx) : null;
               const windowTaraBad = windowTara ? (windowTara.englishName === 'Janma' || windowTara.quality !== 'auspicious') : false;
               const nakshatraChangesThisDay = sr.day.raw.panchang.nakshatras.length > 1;
               // Ranking is deliberately hierarchical: hard election-chart defects dominate;
@@ -1277,7 +1247,7 @@ export default function App() {
               <p><strong>Day-level verdict:</strong> {tierLabelShort(sr.day.tier)}</p>
               <p className="tier-explain"><strong>Full-report method:</strong> every surviving Lagna interval on this Panchāṅga day is cast and evaluated separately. The first interval is no longer assumed to be the Muhūrta. The highest-ranked surviving election is marked <strong>Best available on this day</strong>; all other Lagnas remain visible for comparison.</p>
               {birthChart && <p><strong>Natal reference:</strong> {birthChart.nakshatra}, {birthChart.rashi}, Lagna {birthChart.lagna}</p>}
-              {!birthChart && usePersonalisation && <p><strong>Natal reference:</strong> {NAKSHATRAS[nakshatraIdx]}, {RASHIS[rashiIdx]} (star/sign mode)</p>}
+              {!birthChart && manualStarMode && <p><strong>Natal reference:</strong> {NAKSHATRAS[nakshatraIdx]}, {RASHIS[rashiIdx]} (star/sign mode)</p>}
 
               <div className="plain-summary">
                 <h4>At a glance</h4>
@@ -1408,6 +1378,7 @@ export default function App() {
               </div>
 
               <h4>Planetary Positions (D1)</h4>
+              <div className="table-wrap">
               <table className="dosha-table">
                 <thead><tr><th>Graha</th><th>Rāśi</th><th>Degree</th><th>Nakṣatra (pada)</th><th>Nakṣatra Lord</th><th>House</th><th>Rules</th><th>Dignity</th><th>Retro</th></tr></thead>
                 <tbody>
@@ -1432,9 +1403,11 @@ export default function App() {
                   })}
                 </tbody>
               </table>
+              </div>
 
               <h4>Vimśottari Daśā</h4>
               <p className="sub-label">Current Mahādaśā: {kundaliResult.dasha.currentMahaDashaLord}</p>
+              <div className="table-wrap">
               <table className="dosha-table">
                 <thead><tr><th>Lord</th><th>Start</th><th>End</th><th>Years</th></tr></thead>
                 <tbody>
@@ -1448,6 +1421,7 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
+              </div>
               <p className="hint">
                 <strong>Note:</strong> this is a calculated chart, not a fixed verdict — interpretation depends on
                 birth-time accuracy, house system, and full chart context. Doṣa/Yoga detection layers (Karthari,
@@ -1474,6 +1448,7 @@ export default function App() {
         </p>
 
         <h3>The three tiers</h3>
+        <div className="table-wrap">
         <table className="dosha-table">
           <thead><tr><th>Tier</th><th>Meaning</th></tr></thead>
           <tbody>
@@ -1482,6 +1457,7 @@ export default function App() {
             <tr className="manual"><td>✗ {tierLabelShort('rejected')}</td><td>Fails a genuine hard exclusion (Ekādaśī, eclipse, Adhika Māsa, severe Gaṇḍānta, earthly Bhadra, un-excused Panchaka, Chaturmās, or — for Upanayanam specifically — Dakṣiṇāyana with no exception). Not shown as a live option, but the specific reason is always stated.</td></tr>
           </tbody>
         </table>
+        </div>
 
         <h3>Panchaka Rahita vs Nakshatra Panchaka</h3>
         <p>
@@ -1525,6 +1501,7 @@ export default function App() {
           (6–13 or 22–27 positions); outside that band, no exception applies — it's a real compromise.
         </p>
 
+        <div className="table-wrap">
         <table className="dosha-table">
           <thead><tr><th>#</th><th>Mahādoṣa</th><th>Checked here?</th></tr></thead>
           <tbody>
@@ -1537,6 +1514,7 @@ export default function App() {
             ))}
           </tbody>
         </table>
+        </div>
         <p className="hint">
           Doṣas needing a cast Lagna chart (Karthari, Chandra in 6/8/12, Sagraha Chandra, Udayasta
           Śuddhi, Pāpaṣaḍvarga, Bhṛgu Ṣaṣṭha, Kujāṣṭama, Aṣṭama Lagna, Rāśi Viṣa Ghaṭikā, Kunavāṁśa)
