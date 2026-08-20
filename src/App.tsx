@@ -336,6 +336,29 @@ export default function App() {
 
   const [customLat, setCustomLat] = useState(20.0);
   const [customLng, setCustomLng] = useState(78.0);
+
+  // Auto-detect the visitor's location on first load, so "Hyderabad" is a
+  // fallback almost nobody actually sees rather than the default everyone
+  // has to notice and override. Silent — no error UI if denied/unavailable,
+  // since a permission prompt on load already signals what's happening.
+  // Only affects the Panchāṅga/event-location pickers, not birth place
+  // (where you are now isn't where you were born).
+  useEffect(() => {
+    let cancelled = false;
+    getBrowserLocation()
+      .then((pos) => reverseGeocodeIndia(pos.coords.latitude, pos.coords.longitude))
+      .then((place) => {
+        if (cancelled) return;
+        setCustomLat(place.latitude);
+        setCustomLng(place.longitude);
+        setPCityIdx(CUSTOM_LOCATION_INDEX);
+        setCityIdx(CUSTOM_LOCATION_INDEX);
+      })
+      .catch(() => { /* denied, unavailable, or reverse-geocode failed — Hyderabad fallback stands */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const activity = useMemo(() => ACTIVITIES.find((a) => a.key === activityKey)!, [activityKey]);
   const city = resolveCity(cityIdx, customLat, customLng);
   const pCity = resolveCity(pCityIdx, customLat, customLng);
@@ -505,25 +528,6 @@ export default function App() {
         </p>
       </header>
 
-      <section className="tribute-strip" aria-label="With reverence">
-        <div className="tribute-item">
-          <span>महाकाल<br/><small>Lord of Time</small></span>
-        </div>
-        <div className="tribute-item">
-          <span>गणेश<br/><small>Patron of the Art</small></span>
-        </div>
-        <div className="tribute-item">
-          <svg viewBox="0 0 44 44" className="tribute-icon"><circle cx="22" cy="22" r="8" stroke="var(--accent-dark)" strokeWidth="1.8" fill="none"/>{Array.from({length:12}).map((_,i)=>{const a=(i*30)*Math.PI/180;const x1=22+11*Math.sin(a),y1=22-11*Math.cos(a),x2=22+17*Math.sin(a),y2=22-17*Math.cos(a);return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--accent-dark)" strokeWidth="1.6" strokeLinecap="round"/>;})}</svg>
-          <span>सूर्य<br/><small>Sūrya Siddhānta</small></span>
-        </div>
-        <div className="tribute-item">
-          <span>बृहस्पति<br/><small>Guru of Jyotiṣa</small></span>
-        </div>
-        <div className="tribute-item">
-          <span>पराशर<br/><small>Father of Jyotiṣa</small></span>
-        </div>
-      </section>
-
       <nav className="tabs">
         <button className={tab === 'panchang' ? 'active' : ''} onClick={() => setTab('panchang')}>Today's Panchāṅga</button>
         <button className={tab === 'finder' ? 'active' : ''} onClick={() => setTab('finder')}>Muhurat Finder</button>
@@ -541,7 +545,11 @@ export default function App() {
             <div className="field">
               <label>Location</label>
               <p className="current-location">📍 {pCity.name}</p>
-              {pCityIdx !== CUSTOM_LOCATION_INDEX && <small className="hint-inline">Defaulted to Hyderabad — click "Use my location" below or search your actual city, since tithi/nakṣatra/muhūrta times shift with location.</small>}
+              {pCityIdx !== CUSTOM_LOCATION_INDEX && (
+                <small className="hint-inline">
+                  Detecting your location… if this stays on Hyderabad, your browser likely blocked or doesn't support location access — search your actual city below, since tithi/nakṣatra/muhūrta times shift with location.
+                </small>
+              )}
             </div>
           </div>
           <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setPCityIdx(CUSTOM_LOCATION_INDEX); }} />
