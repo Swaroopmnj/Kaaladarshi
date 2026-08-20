@@ -38,7 +38,7 @@ import { getMudhaStatus, SHUKRA_MUDHA_SENSITIVE, GURU_MUDHA_SENSITIVE } from './
 import { classifyLagna, lagnaVerdictFor } from './lib/lagnaSuitability';
 import { isChakraShuddhi } from './lib/chakraShuddhi';
 import { getBhadraDayVerdict } from './lib/bhadra';
-import { SOUTH_INDIAN_GRID, planetAbbr } from './lib/southIndianChart';
+import { SOUTH_INDIAN_GRID, planetAbbr, RASHI_DEVANAGARI } from './lib/southIndianChart';
 import { runMuhurtaSearch, describeTara, type EnrichedDay } from './lib/search';
 import { localDateAtMidnight, localDateTime, toRealInstant, DISPLAY_TZ, REAL_TZ, isNextCalendarDay } from './lib/dateUtils';
 import { searchIndiaPlaces, type IndiaPlaceResult } from './lib/locationSearch';
@@ -228,7 +228,7 @@ function SouthIndianChart({ lagnaRashiIndex, planets }: { lagnaRashiIndex: numbe
         return (
           <g key={cell.rashiIndex}>
             <rect x={x} y={y} width={cellSize} height={cellSize} fill={isLagna ? '#fdf2df' : 'none'} stroke="var(--border, #e6dcc8)" strokeWidth={1} />
-            <text x={x + 5} y={y + 13} fontSize={9} fill="var(--muted, #7a6a55)">{RASHIS[cell.rashiIndex].split(' ')[0]}</text>
+            <text x={x + 5} y={y + 13} fontSize={10} fill="var(--muted, #7a6a55)">{RASHI_DEVANAGARI[cell.rashiIndex]}</text>
             {isLagna && <text x={x + cellSize - 8} y={y + 13} fontSize={9} fontWeight={700} fill="var(--accent-dark, #8a4513)" textAnchor="end">Asc</text>}
             {rashiPlanets.map((p, i) => (
               <text key={p.planet} x={x + 6} y={y + 28 + i * 13} fontSize={11} fontWeight={600} fill="#2b1d0e">
@@ -488,6 +488,29 @@ export default function App() {
           and (optionally) your birth star / rāśi.
         </p>
       </header>
+
+      <section className="tribute-strip" aria-label="With reverence">
+        <div className="tribute-item">
+          <svg viewBox="0 0 44 44" className="tribute-icon"><path d="M22 4 L16 12 M22 4 L28 12 M22 4 L22 14" stroke="var(--accent-dark)" strokeWidth="2" fill="none" strokeLinecap="round"/><line x1="22" y1="14" x2="22" y2="34" stroke="var(--accent-dark)" strokeWidth="2"/><ellipse cx="22" cy="24" rx="7" ry="4" stroke="var(--accent-dark)" strokeWidth="1.6" fill="none"/><path d="M15 24 Q22 20 29 24" stroke="var(--accent-dark)" strokeWidth="1.2" fill="none"/><path d="M13 8 A5 5 0 0 1 20 6" stroke="var(--accent-dark)" strokeWidth="1.6" fill="none" strokeLinecap="round"/></svg>
+          <span>महाकाल<br/><small>Lord of Time</small></span>
+        </div>
+        <div className="tribute-item">
+          <svg viewBox="0 0 44 44" className="tribute-icon"><text x="22" y="24" fontSize="20" textAnchor="middle" fill="var(--accent-dark)" fontFamily="serif">ॐ</text><path d="M22 30 Q18 34 22 38 Q26 34 22 30 Z" stroke="var(--accent-dark)" strokeWidth="1.4" fill="none"/></svg>
+          <span>गणेश<br/><small>Patron of the Art</small></span>
+        </div>
+        <div className="tribute-item">
+          <svg viewBox="0 0 44 44" className="tribute-icon"><circle cx="22" cy="22" r="8" stroke="var(--accent-dark)" strokeWidth="1.8" fill="none"/>{Array.from({length:12}).map((_,i)=>{const a=(i*30)*Math.PI/180;const x1=22+11*Math.sin(a),y1=22-11*Math.cos(a),x2=22+17*Math.sin(a),y2=22-17*Math.cos(a);return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--accent-dark)" strokeWidth="1.6" strokeLinecap="round"/>;})}</svg>
+          <span>सूर्य<br/><small>Sūrya Siddhānta</small></span>
+        </div>
+        <div className="tribute-item">
+          <svg viewBox="0 0 44 44" className="tribute-icon">{Array.from({length:8}).map((_,i)=>{const a=(i*45)*Math.PI/180;const x=22+10*Math.sin(a),y=22-10*Math.cos(a);return <ellipse key={i} cx={x} cy={y} rx="4" ry="7" transform={`rotate(${i*45} ${x} ${y})`} stroke="var(--accent-dark)" strokeWidth="1.2" fill="none"/>;})}<circle cx="22" cy="22" r="3" fill="var(--accent-dark)"/></svg>
+          <span>बृहस्पति<br/><small>Guru of Jyotiṣa</small></span>
+        </div>
+        <div className="tribute-item">
+          <svg viewBox="0 0 44 44" className="tribute-icon"><path d="M14 30 Q14 20 22 20 Q30 20 30 30 Z" stroke="var(--accent-dark)" strokeWidth="1.6" fill="none"/><line x1="22" y1="20" x2="22" y2="10" stroke="var(--accent-dark)" strokeWidth="1.4"/><line x1="26" y1="20" x2="30" y2="10" stroke="var(--accent-dark)" strokeWidth="1.4" strokeLinecap="round"/><line x1="34" y1="8" x2="14" y2="34" stroke="var(--accent-dark)" strokeWidth="1.6" strokeLinecap="round"/></svg>
+          <span>पराशर<br/><small>Father of Jyotiṣa</small></span>
+        </div>
+      </section>
 
       <nav className="tabs">
         <button className={tab === 'panchang' ? 'active' : ''} onClick={() => setTab('panchang')}>Today's Panchāṅga</button>
@@ -1228,14 +1251,25 @@ export default function App() {
               const ashtamaFromNatalLagna = natalLagnaIdx !== undefined
                 ? (checks.find(c => c.n === 12)?.state === 'present')
                 : null;
+              // Personalisation is recomputed PER WINDOW using the nakshatra actually
+              // active at this window's moment — not the day's first-listed nakshatra.
+              // A day can genuinely transition (e.g. Purva Ashadha → Uttara Ashadha)
+              // partway through; a window after that transition should be judged on
+              // the nakshatra that's really active then, not penalised for a nakshatra
+              // that has already passed by the time this window occurs.
+              const windowNakIdx = NAKSHATRAS.findIndex(n => activeNak.name.toLowerCase().startsWith(n.toLowerCase().slice(0, 6)));
+              const windowTara = usePersonalisation && windowNakIdx >= 0 ? computeTarabala(nakshatraIdx, windowNakIdx) : null;
+              const windowTaraBad = windowTara ? (windowTara.englishName === 'Janma' || windowTara.quality !== 'auspicious') : false;
+              const nakshatraChangesThisDay = sr.day.raw.panchang.nakshatras.length > 1;
               // Ranking is deliberately hierarchical: hard election-chart defects dominate;
               // positive features cannot erase them. The numeric value only sorts survivors.
               const rank = (major ? -1000 * major : 0)
                 + (lagnaVerdict === 'auspicious' ? 60 : lagnaVerdict === 'medium' ? 25 : -80)
                 + (pr?.rahita ? 45 : pr ? -60 : 0)
                 - moderate * 20
+                + (windowTaraBad ? -40 : windowTara ? 20 : 0)
                 + Math.max(0, Math.round((w.end.getTime() - w.start.getTime()) / 60000 / 10));
-              return { index, w, midpoint, chart, checks, lagnaType, lagnaVerdict, activeTithi, activeNak, pr, major, moderate, rank, ashtamaFromNatalLagna };
+              return { index, w, midpoint, chart, checks, lagnaType, lagnaVerdict, activeTithi, activeNak, pr, major, moderate, rank, ashtamaFromNatalLagna, windowTara, windowTaraBad, nakshatraChangesThisDay };
             }).sort((a,b) => b.rank - a.rank);
             return <div className="report-block">
               <h3>{sr.activityLabel} — {fmtDate(sr.day.raw.date)}</h3>
@@ -1253,7 +1287,7 @@ export default function App() {
 
               <h4>Your personal suitability for this day</h4>
               <div className="simple-checks">
-                {personalTara && <div className={personalTara.englishName === 'Janma' || personalTara.quality !== 'auspicious' ? 'simple-check warn-check' : 'simple-check good-check'}><strong>{personalTara.englishName === 'Janma' || personalTara.quality !== 'auspicious' ? '🟡' : '🟢'} Tārābala</strong><span>{describeTara(personalTara)}. This tells how the day's Nakṣatra relates to your birth Nakṣatra.</span></div>}
+                {personalTara && <div className={personalTara.englishName === 'Janma' || personalTara.quality !== 'auspicious' ? 'simple-check warn-check' : 'simple-check good-check'}><strong>{personalTara.englishName === 'Janma' || personalTara.quality !== 'auspicious' ? '🟡' : '🟢'} Tārābala (day's first-listed nakṣatra)</strong><span>{describeTara(personalTara)}. This tells how the day's Nakṣatra relates to your birth Nakṣatra.{sr.day.raw.panchang.nakshatras.length > 1 ? ' ⚠️ This day\'s nakṣatra changes partway through — this line reflects only the FIRST nakṣatra of the day. Check each candidate Lagna below for its own window-specific Tārābala, since a later window may fall under a different (possibly better) nakṣatra.' : ''}</span></div>}
                 {personalChandra && <div className={personalChandra.quality === 'strong' ? 'simple-check good-check' : 'simple-check warn-check'}><strong>{personalChandra.quality === 'strong' ? '🟢' : '🟡'} Chandrabala</strong><span>{personalChandra.quality} — transit Moon is house {personalChandra.house} from your Janma Rāśi. This measures support from the Moon for you personally.</span></div>}
                 {sr.day.brideTaraNote && <div className="simple-check"><strong>Personal note</strong><span>{sr.day.brideTaraNote}</span></div>}
               </div>
@@ -1282,6 +1316,16 @@ export default function App() {
 
                   <h4>Important election-chart checks — in plain language</h4>
                   <div className="simple-checks">
+                    {c.windowTara && (
+                      <div className={c.windowTaraBad ? 'simple-check bad-check' : 'simple-check good-check'}>
+                        <strong>{c.windowTaraBad ? '🔴' : '🟢'} Tārābala at this exact window</strong>
+                        <span>
+                          {describeTara(c.windowTara)}, computed from {c.activeNak.name} — the nakṣatra actually active at
+                          {' '}{fmtTimeDay(c.midpoint, sr.day.raw.panchang.sunrise)}, not the day's first-listed nakṣatra.
+                          {c.nakshatraChangesThisDay ? ' This day\'s nakṣatra changes partway through — windows before and after the change can have different Tārābala; each is checked at its own time here.' : ''}
+                        </span>
+                      </div>
+                    )}
                     {c.checks.map(x => <div key={x.n} className={`simple-check ${x.state === 'present' ? 'bad-check' : 'good-check'}`}>
                       <strong>{x.state === 'present' ? '🔴' : '🟢'} #{x.n} {MAHADOSHAS.find(m => m.n === x.n)?.name ?? 'Mahādoṣa'}</strong>
                       <span>{x.state === 'present' ? 'Defect detected: ' : 'Clear: '}{x.detail}</span>

@@ -26,18 +26,24 @@ export const SOUTH_INDIAN_GRID: { rashiIndex: number; row: number; col: number }
   { rashiIndex: 5, row: 3, col: 3 }, // Kanya
 ];
 
+// Traditional Devanāgarī graha abbreviations, as used in South/North Indian
+// chart software and printed panchāṅgams — not the Western zodiac glyph set.
 const PLANET_ABBR: Record<string, string> = {
-  Sun: 'Su',
-  Moon: 'Mo',
-  Mars: 'Ma',
-  Mercury: 'Me',
-  Jupiter: 'Ju',
-  Venus: 'Ve',
-  Saturn: 'Sa',
-  Rahu: 'Ra',
-  Ketu: 'Ke',
+  Sun: 'सू',
+  Moon: 'च',
+  Mars: 'मं',
+  Mercury: 'बु',
+  Jupiter: 'गु',
+  Venus: 'शु',
+  Saturn: 'श',
+  Rahu: 'रा',
+  Ketu: 'के',
 };
 
 export function planetAbbr(name: string): string {
   return PLANET_ABBR[name] ?? name.slice(0, 2);
 }
+
+// Devanāgarī rāśi names for chart display — full traditional Sanskrit name
+// rather than an English abbreviation.
+export const RASHI_DEVANAGARI = ['मेष', 'वृषभ', 'मिथुन', 'कर्क', 'सिंह', 'कन्या', 'तुला', 'वृश्चिक', 'धनु', 'मकर', 'कुम्भ', 'मीन'];
