@@ -234,6 +234,21 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
       );
     } else if (kalasaChakraShuddhi === true) clearedChecks.push('Kalasa/Vrishabha Chakra Shuddhi: pure');
 
+    if (p.personalize) {
+      const taraBad = taraNote?.includes('inauspicious');
+      const brideTaraBad = brideTaraNote?.includes('inauspicious');
+      if (taraBad || brideTaraBad) {
+        compromises.push(
+          `${[taraBad ? taraNote : null, brideTaraBad ? brideTaraNote : null].filter(Boolean).join('; ')} — thumb rule: an inauspicious Tārā (esp. Vipat/Pratyari/Naidhana/Janma) is traditionally avoided for important undertakings; flagged, not blocked, since strength elsewhere in the day can offset it.`,
+        );
+      } else if (taraNote) clearedChecks.push(`Tārābala: favourable (${taraNote})`);
+
+      const chandraBad = chandraNote?.toLowerCase().includes('weak');
+      if (chandraBad) {
+        compromises.push(`${chandraNote} — thumb rule: a weak Chandra Bala (per the library's own house classification — 2nd/4th/5th/8th/9th/12th from birth Moon are weak, 1st/3rd/6th/7th/10th/11th are strong) is traditionally avoided; flagged, not blocked.`);
+      } else if (chandraNote) clearedChecks.push(`Chandra Bala: favourable (${chandraNote})`);
+    }
+
     let tier: 'strict' | 'compromised' | 'rejected';
     let tierNote: string;
     if (activityVarjya) {
