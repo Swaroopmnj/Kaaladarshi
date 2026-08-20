@@ -287,6 +287,11 @@ export default function App() {
   const [birthCityIdx, setBirthCityIdx] = useState(DEFAULT_CITY_INDEX);
   const [birthChart, setBirthChart] = useState<{ nakshatra: string; pada: number; rashi: string; lagna: string } | null>(null);
   const [birthError, setBirthError] = useState<string | null>(null);
+  const [brideBirthDate, setBrideBirthDate] = useState('');
+  const [brideBirthTime, setBrideBirthTime] = useState('12:00');
+  const [brideBirthCityIdx, setBrideBirthCityIdx] = useState(DEFAULT_CITY_INDEX);
+  const [brideBirthChart, setBrideBirthChart] = useState<{ nakshatra: string; pada: number; rashi: string; lagna: string } | null>(null);
+  const [brideBirthError, setBrideBirthError] = useState<string | null>(null);
   const [pDate, setPDate] = useState(new Date().toISOString().slice(0, 10));
   const [pCityIdx, setPCityIdx] = useState(DEFAULT_CITY_INDEX);
   const [panchang, setPanchang] = useState<DailyPanchangResult | null>(null);
@@ -549,6 +554,39 @@ export default function App() {
       });
     } catch (e) {
       setBirthError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  function computeBrideBirthChart() {
+    setBrideBirthError(null);
+    if (!brideBirthDate) {
+      setBrideBirthError('Please enter a birth date.');
+      return;
+    }
+    try {
+      const brideCity = resolveCity(brideBirthCityIdx, customLat, customLng);
+      const location = { latitude: brideCity.latitude, longitude: brideCity.longitude };
+      const brideMoment = localDateTime(brideBirthDate, brideBirthTime, brideCity.timezone);
+      const instant = getInstantPanchang(brideMoment, location);
+      if (!instant) {
+        setBrideBirthError('Could not compute a panchang for this date/time/location (e.g. polar sunrise issue).');
+        return;
+      }
+      const lagna = computeLagna(brideMoment, location, 'lahiri');
+
+      const nakIdx = NAKSHATRAS.findIndex((n) => instant.nakshatra.name.toLowerCase().startsWith(n.toLowerCase().slice(0, 6)));
+      const rashiIdx2 = RASHIS.findIndex((r) => instant.chandraRashi.name.toLowerCase().startsWith(r.toLowerCase().slice(0, 4)));
+      if (nakIdx >= 0) setBrideNakshatraIdx(nakIdx);
+      if (rashiIdx2 >= 0) setBrideRashiIdx(rashiIdx2);
+
+      setBrideBirthChart({
+        nakshatra: instant.nakshatra.name,
+        pada: instant.nakshatra.pada,
+        rashi: instant.chandraRashi.name,
+        lagna: lagna.rashi.name,
+      });
+    } catch (e) {
+      setBrideBirthError(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -940,8 +978,8 @@ export default function App() {
           <p className="sub-label">Step 1 — Activity &amp; location</p>
           <div className="field">
             <label>Activity (Muhūrta)</label>
-            <select value={isVivah && knowledgeMode !== 'star' ? 'vivah-blocked' : activityKey} onChange={(e) => setActivityKey(e.target.value)}>
-              {ACTIVITIES.filter((a) => a.key !== 'vivah' || knowledgeMode === 'star').map((a) => (
+            <select value={isVivah && knowledgeMode !== 'star' && knowledgeMode !== 'birth' ? 'vivah-blocked' : activityKey} onChange={(e) => setActivityKey(e.target.value)}>
+              {ACTIVITIES.filter((a) => a.key !== 'vivah' || knowledgeMode === 'star' || knowledgeMode === 'birth').map((a) => (
                 <option key={a.key} value={a.key}>{a.label}</option>
               ))}
             </select>
@@ -980,7 +1018,7 @@ export default function App() {
         <section className="panel form-panel">
           <p className="sub-label">Step 2 — What do you know about yourself{isVivah ? ' (and your partner)' : ''}?</p>
           <div className="knowledge-choice">
-            <button type="button" className={`choice-btn ${knowledgeMode === 'birth' ? 'active' : ''}`} onClick={() => { setKnowledgeMode('birth'); setManualStarMode(false); }} disabled={isVivah}>
+            <button type="button" className={`choice-btn ${knowledgeMode === 'birth' ? 'active' : ''}`} onClick={() => { setKnowledgeMode('birth'); setManualStarMode(isVivah); }}>
               📅 I know exact birth date, time &amp; place
             </button>
             <button type="button" className={`choice-btn ${knowledgeMode === 'star' ? 'active' : ''}`} onClick={() => { setKnowledgeMode('star'); setManualStarMode(true); }}>
@@ -990,10 +1028,17 @@ export default function App() {
               🤷 I don't know either
             </button>
           </div>
-          {isVivah && <p className="hint">For marriage, only the Nakṣatra/Rāśi option is available right now, since it lets us take both partners' details.</p>}
+          {isVivah && <p className="hint">For marriage, we take both partners' details — pick whichever option matches what you both know (exact birth details for both, or Nakṣatra/Rāśi for both).</p>}
 
           {knowledgeMode === 'birth' && (
             <div className="wizard-step">
+              {isVivah && (
+                <div className="activity-dedicated-header">
+                  <h3>💑 Vivāha Muhūrta — both partners' birth details</h3>
+                  <p className="sub-label">We need both sets, since marriage is a joint decision.</p>
+                </div>
+              )}
+              <p className="sub-label">{isVivah ? "Groom's birth details" : 'Birth details'}</p>
               <div className="field-row">
                 <div className="field">
                   <label>Birth Date</label>
@@ -1021,25 +1066,86 @@ export default function App() {
                   </div>
                 </div>
               )}
-              <button className="primary" onClick={computeBirthChart}>Compute My Chart</button>
+              <button className="primary" onClick={computeBirthChart}>Compute {isVivah ? "Groom's" : 'My'} Chart</button>
               {birthError && <p className="error">{birthError}</p>}
 
               {birthChart && (
                 <div className="verdict-card good">
-                  <h4>Your birth chart</h4>
+                  <h4>{isVivah ? "Groom's" : 'Your'} birth chart</h4>
                   <ul className="reasons">
                     <li>Nakshatra: {birthChart.nakshatra} (pada {birthChart.pada})</li>
                     <li>Rāśi (Moon sign): {birthChart.rashi}</li>
                     <li>Lagna (Ascendant): {birthChart.lagna}</li>
                   </ul>
-                  <p className="hint">
-                    This is a quick summary. For your full birth chart — Rāśi (D1) and Navāṁśa (D9)
-                    charts, every planet's house, and your Vimśottari Daśā — generate it in the{' '}
-                    <button type="button" className="link-button" onClick={() => setTab('kundali')}>Kundali tab</button>.
-                    Once generated, searches here and the Full Muhurat Report will also cross-check
-                    candidate Lagnas against your own natal Lagna.
-                  </p>
+                  {!isVivah && (
+                    <p className="hint">
+                      This is a quick summary. For your full birth chart — Rāśi (D1) and Navāṁśa (D9)
+                      charts, every planet's house, and your Vimśottari Daśā — generate it in the{' '}
+                      <button type="button" className="link-button" onClick={() => setTab('kundali')}>Kundali tab</button>.
+                      Once generated, searches here and the Full Muhurat Report will also cross-check
+                      candidate Lagnas against your own natal Lagna.
+                    </p>
+                  )}
                 </div>
+              )}
+
+              {isVivah && (
+                <>
+                  <p className="sub-label" style={{ marginTop: '1.2rem' }}>Bride's birth details</p>
+                  <div className="field-row">
+                    <div className="field">
+                      <label>Birth Date</label>
+                      <input type="date" value={brideBirthDate} onChange={(e) => setBrideBirthDate(e.target.value)} />
+                    </div>
+                    <div className="field">
+                      <label>Birth Time</label>
+                      <input type="time" value={brideBirthTime} onChange={(e) => setBrideBirthTime(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label>Birth Place</label>
+                    <p className="current-location">📍 {resolveCity(brideBirthCityIdx, customLat, customLng).name}</p>
+                  </div>
+                  <IndiaLocationSearch onPick={(place) => { setCustomLat(place.latitude); setCustomLng(place.longitude); setBrideBirthCityIdx(CUSTOM_LOCATION_INDEX); }} />
+                  {brideBirthCityIdx === CUSTOM_LOCATION_INDEX && (
+                    <div className="field-row">
+                      <div className="field">
+                        <label>Latitude</label>
+                        <input type="number" step="0.0001" value={customLat} onChange={(e) => setCustomLat(Number(e.target.value))} />
+                      </div>
+                      <div className="field">
+                        <label>Longitude</label>
+                        <input type="number" step="0.0001" value={customLng} onChange={(e) => setCustomLng(Number(e.target.value))} />
+                      </div>
+                    </div>
+                  )}
+                  <button className="primary" onClick={computeBrideBirthChart}>Compute Bride's Chart</button>
+                  {brideBirthError && <p className="error">{brideBirthError}</p>}
+
+                  {brideBirthChart && (
+                    <div className="verdict-card good">
+                      <h4>Bride's birth chart</h4>
+                      <ul className="reasons">
+                        <li>Nakshatra: {brideBirthChart.nakshatra} (pada {brideBirthChart.pada})</li>
+                        <li>Rāśi (Moon sign): {brideBirthChart.rashi}</li>
+                        <li>Lagna (Ascendant): {brideBirthChart.lagna}</li>
+                      </ul>
+                    </div>
+                  )}
+
+                  {ashtakoot && birthChart && brideBirthChart && (
+                    <div className={`verdict-card ${ashtakoot.totalScore >= 18 ? 'good' : 'blocked'}`}>
+                      <h4>Ashtakoot Guna Milan: {ashtakoot.totalScore}/36</h4>
+                      <p className="sub-label">{ashtakoot.totalScore >= 18 ? 'Meets the commonly used 18/36 minimum threshold.' : 'Below the commonly used 18/36 minimum threshold.'}</p>
+                      <ul className="reasons">
+                        {ashtakoot.koots.map((k) => (
+                          <li key={k.name}>{k.name}: {k.score}/{k.maxScore} — {k.description}</li>
+                        ))}
+                        {ashtakoot.cancellations.map((c, i) => <li key={`c${i}`}>Cancellation applied: {c}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -1250,7 +1356,7 @@ export default function App() {
           )}
         </section>
 
-        {((knowledgeMode === 'birth' && birthChart) || (knowledgeMode === 'star' && (!isVivah || (ashtakoot !== null))) || (knowledgeMode === 'name' && !!namaSelected)) && (
+        {((knowledgeMode === 'birth' && (isVivah ? (birthChart && brideBirthChart) : birthChart)) || (knowledgeMode === 'star' && (!isVivah || (ashtakoot !== null))) || (knowledgeMode === 'name' && !!namaSelected)) && (
           <>
             <section className="panel form-panel">
               <button className="primary" onClick={runSearch} disabled={loading}>
