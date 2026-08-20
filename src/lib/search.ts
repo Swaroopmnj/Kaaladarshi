@@ -18,6 +18,26 @@ import {
   KARTIKA_DAKSHINAYANA_EXCEPTION,
 } from './ayana';
 import { getMudhaStatus, SHUKRA_MUDHA_SENSITIVE, GURU_MUDHA_SENSITIVE } from './mudha';
+
+// panchang-ts's own computeTarabala labels Janma Tara (Tara 1 — the muhurta
+// falling on the person's own birth nakshatra) as "auspicious". The
+// MAJORITY classical position disagrees: PanchangBodh quotes the source
+// verse directly — "जन्म विपत् च नैधन प्रत्यरि च" (Janma, Vipat, Naidhana,
+// Pratyari — these four inauspicious Tārās should be avoided in auspicious
+// undertakings) — explicitly grouping Janma with the three unambiguously
+// malefic Tārās. Astroccult.net states it as a plain rule: "Avoid your
+// janma nakshatra (birth star) for all good works." There IS a documented
+// minority nuance (Kambhampati: Janma Tara is activity-dependent — fine for
+// some saṃskāras like Upanayanam, avoided for others like conception or
+// travel) — we don't hard-block on it, but the majority position is clear
+// enough that treating it as a positive signal (the library's default) is
+// wrong for a general-purpose muhurta tool. We override it here to "warn".
+export function describeTara(tara: { name: string; englishName: string; quality: string }): string {
+  if (tara.englishName === 'Janma') {
+    return `${tara.name} Tara — inauspicious (own birth nakshatra; majority classical sources group this with Vipat/Pratyari/Naidhana as taras to avoid for auspicious undertakings — a minority view treats it as activity-dependent instead)`;
+  }
+  return `${tara.name} Tara — ${tara.quality}`;
+}
 import { isChakraShuddhi } from './chakraShuddhi';
 import { getBhadraDayVerdict } from './bhadra';
 import { localDateAtMidnight, toRealInstant } from './dateUtils';
@@ -116,10 +136,10 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
     const transitNakIdx = NAKSHATRAS.findIndex((n) => nakshatraName.toLowerCase().startsWith(n.toLowerCase().slice(0, 6)));
     if (transitNakIdx >= 0) {
       const tara = computeTarabala(effNakIdx, transitNakIdx);
-      taraNote = `${tara.name} Tara — ${tara.quality}${p.isVivah ? ' [groom]' : ''}`;
+      taraNote = `${describeTara(tara)}${p.isVivah ? ' [groom]' : ''}`;
       if (p.isVivah) {
         const brideTara = computeTarabala(p.brideNakshatraIdx, transitNakIdx);
-        brideTaraNote = `${brideTara.name} Tara — ${brideTara.quality} [bride]`;
+        brideTaraNote = `${describeTara(brideTara)} [bride]`;
       }
     }
     const chandraRashiName: string | undefined = panchang.chandraRashi?.name;

@@ -39,7 +39,7 @@ import { classifyLagna, lagnaVerdictFor } from './lib/lagnaSuitability';
 import { isChakraShuddhi } from './lib/chakraShuddhi';
 import { getBhadraDayVerdict } from './lib/bhadra';
 import { SOUTH_INDIAN_GRID, planetAbbr } from './lib/southIndianChart';
-import { runMuhurtaSearch, type EnrichedDay } from './lib/search';
+import { runMuhurtaSearch, describeTara, type EnrichedDay } from './lib/search';
 import { localDateAtMidnight, localDateTime, toRealInstant, DISPLAY_TZ, REAL_TZ, isNextCalendarDay } from './lib/dateUtils';
 import { searchIndiaPlaces, type IndiaPlaceResult } from './lib/locationSearch';
 import './App.css';
@@ -1253,7 +1253,7 @@ export default function App() {
 
               <h4>Your personal suitability for this day</h4>
               <div className="simple-checks">
-                {personalTara && <div className={personalTara.quality === 'auspicious' ? 'simple-check good-check' : 'simple-check warn-check'}><strong>{personalTara.quality === 'auspicious' ? '🟢' : '🟡'} Tārābala</strong><span>{personalTara.name} Tārā — {personalTara.quality}. This tells how the day’s Nakṣatra relates to your birth Nakṣatra.</span></div>}
+                {personalTara && <div className={personalTara.englishName === 'Janma' || personalTara.quality !== 'auspicious' ? 'simple-check warn-check' : 'simple-check good-check'}><strong>{personalTara.englishName === 'Janma' || personalTara.quality !== 'auspicious' ? '🟡' : '🟢'} Tārābala</strong><span>{describeTara(personalTara)}. This tells how the day's Nakṣatra relates to your birth Nakṣatra.</span></div>}
                 {personalChandra && <div className={personalChandra.quality === 'strong' ? 'simple-check good-check' : 'simple-check warn-check'}><strong>{personalChandra.quality === 'strong' ? '🟢' : '🟡'} Chandrabala</strong><span>{personalChandra.quality} — transit Moon is house {personalChandra.house} from your Janma Rāśi. This measures support from the Moon for you personally.</span></div>}
                 {sr.day.brideTaraNote && <div className="simple-check"><strong>Personal note</strong><span>{sr.day.brideTaraNote}</span></div>}
               </div>
