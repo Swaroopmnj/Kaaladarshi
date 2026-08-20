@@ -59,6 +59,10 @@ export interface EnrichedDay {
   guruMudhaWarn: boolean;
   taraNote?: string;
   brideTaraNote?: string;
+  fatherTaraNote?: string;
+  motherTaraNote?: string;
+  fatherChandraNote?: string;
+  motherChandraNote?: string;
   chandraNote?: string;
   kalasaChakraShuddhi?: boolean;
   vrishabhaChakraShuddhi?: boolean;
@@ -84,6 +88,13 @@ export interface SearchParams {
   groomRashiIdx: number;
   brideNakshatraIdx: number;
   brideRashiIdx: number;
+  /** Only used when activityKey === 'upanayanam' — Father/Mother alongside
+   *  the son (son uses nakshatraIdx/rashiIdx, the existing "self" slot).
+   *  Upanayanam is traditionally checked for all three, not just the boy. */
+  fatherNakshatraIdx?: number;
+  fatherRashiIdx?: number;
+  motherNakshatraIdx?: number;
+  motherRashiIdx?: number;
 }
 
 export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
@@ -130,16 +141,27 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
     let taraNote: string | undefined;
     let brideTaraNote: string | undefined;
     let chandraNote: string | undefined;
+    let fatherTaraNote: string | undefined;
+    let motherTaraNote: string | undefined;
+    let fatherChandraNote: string | undefined;
+    let motherChandraNote: string | undefined;
+    const isUpanayanam = p.activityKey === 'upanayanam' && p.fatherNakshatraIdx !== undefined && p.motherNakshatraIdx !== undefined;
     if (p.personalize) {
       const effNakIdx = p.isVivah ? p.groomNakshatraIdx : p.nakshatraIdx;
     const effRashiIdx = p.isVivah ? p.groomRashiIdx : p.rashiIdx;
     const transitNakIdx = NAKSHATRAS.findIndex((n) => nakshatraName.toLowerCase().startsWith(n.toLowerCase().slice(0, 6)));
     if (transitNakIdx >= 0) {
       const tara = computeTarabala(effNakIdx, transitNakIdx);
-      taraNote = `${describeTara(tara)}${p.isVivah ? ' [groom]' : ''}`;
+      taraNote = `${describeTara(tara)}${p.isVivah ? ' [groom]' : isUpanayanam ? ' [son]' : ''}`;
       if (p.isVivah) {
         const brideTara = computeTarabala(p.brideNakshatraIdx, transitNakIdx);
         brideTaraNote = `${describeTara(brideTara)} [bride]`;
+      }
+      if (isUpanayanam) {
+        const fatherTara = computeTarabala(p.fatherNakshatraIdx!, transitNakIdx);
+        fatherTaraNote = `${describeTara(fatherTara)} [father]`;
+        const motherTara = computeTarabala(p.motherNakshatraIdx!, transitNakIdx);
+        motherTaraNote = `${describeTara(motherTara)} [mother]`;
       }
     }
     const chandraRashiName: string | undefined = panchang.chandraRashi?.name;
@@ -147,7 +169,13 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
       const transitRashiIdx = RASHIS.findIndex((r) => r.toLowerCase().startsWith(chandraRashiName.toLowerCase().slice(0, 4)));
       if (transitRashiIdx >= 0) {
         const cb = computeChandraBalam(effRashiIdx, transitRashiIdx);
-        chandraNote = `Chandra Bala: ${cb.quality} (house ${cb.house} from birth Moon)${p.isVivah ? ' [groom]' : ''}`;
+        chandraNote = `Chandra Bala: ${cb.quality} (house ${cb.house} from birth Moon)${p.isVivah ? ' [groom]' : isUpanayanam ? ' [son]' : ''}`;
+        if (isUpanayanam && p.fatherRashiIdx !== undefined && p.motherRashiIdx !== undefined) {
+          const fcb = computeChandraBalam(p.fatherRashiIdx, transitRashiIdx);
+          fatherChandraNote = `Chandra Bala: ${fcb.quality} (house ${fcb.house} from birth Moon) [father]`;
+          const mcb = computeChandraBalam(p.motherRashiIdx, transitRashiIdx);
+          motherChandraNote = `Chandra Bala: ${mcb.quality} (house ${mcb.house} from birth Moon) [mother]`;
+        }
       }
     }
     }
@@ -237,16 +265,20 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
     if (p.personalize) {
       const taraBad = taraNote?.includes('inauspicious');
       const brideTaraBad = brideTaraNote?.includes('inauspicious');
-      if (taraBad || brideTaraBad) {
+      const fatherTaraBad = fatherTaraNote?.includes('inauspicious');
+      const motherTaraBad = motherTaraNote?.includes('inauspicious');
+      if (taraBad || brideTaraBad || fatherTaraBad || motherTaraBad) {
         compromises.push(
-          `${[taraBad ? taraNote : null, brideTaraBad ? brideTaraNote : null].filter(Boolean).join('; ')} — thumb rule: an inauspicious Tārā (esp. Vipat/Pratyari/Naidhana/Janma) is traditionally avoided for important undertakings; flagged, not blocked, since strength elsewhere in the day can offset it.`,
+          `${[taraBad ? taraNote : null, brideTaraBad ? brideTaraNote : null, fatherTaraBad ? fatherTaraNote : null, motherTaraBad ? motherTaraNote : null].filter(Boolean).join('; ')} — thumb rule: an inauspicious Tārā (esp. Vipat/Pratyari/Naidhana/Janma) is traditionally avoided for important undertakings; flagged for whichever person(s) it affects, not blocked, since strength elsewhere in the day can offset it. For a shared muhurta (marriage, Upanayanam), a defect for ANY participant is treated as a shared compromise — this is Kāladarśī's own combination rule (a "weakest link" approach), not a specific classical formula for combining multiple people's Tārābala into one score, since no single sourced method for that was found.`,
         );
-      } else if (taraNote) clearedChecks.push(`Tārābala: favourable (${taraNote})`);
+      } else if (taraNote) clearedChecks.push(`Tārābala: favourable for all participants (${[taraNote, brideTaraNote, fatherTaraNote, motherTaraNote].filter(Boolean).join('; ')})`);
 
       const chandraBad = chandraNote?.toLowerCase().includes('weak');
-      if (chandraBad) {
-        compromises.push(`${chandraNote} — thumb rule: a weak Chandra Bala (per the library's own house classification — 2nd/4th/5th/8th/9th/12th from birth Moon are weak, 1st/3rd/6th/7th/10th/11th are strong) is traditionally avoided; flagged, not blocked.`);
-      } else if (chandraNote) clearedChecks.push(`Chandra Bala: favourable (${chandraNote})`);
+      const fatherChandraBad = fatherChandraNote?.toLowerCase().includes('weak');
+      const motherChandraBad = motherChandraNote?.toLowerCase().includes('weak');
+      if (chandraBad || fatherChandraBad || motherChandraBad) {
+        compromises.push(`${[chandraBad ? chandraNote : null, fatherChandraBad ? fatherChandraNote : null, motherChandraBad ? motherChandraNote : null].filter(Boolean).join('; ')} — thumb rule: a weak Chandra Bala (per the library's own house classification — 2nd/4th/5th/8th/9th/12th from birth Moon are weak, 1st/3rd/6th/7th/10th/11th are strong) is traditionally avoided; flagged for whichever person(s) it affects, not blocked. Combined here using the same "weakest link" rule as Tārābala above.`);
+      } else if (chandraNote) clearedChecks.push(`Chandra Bala: favourable for all participants (${[chandraNote, fatherChandraNote, motherChandraNote].filter(Boolean).join('; ')})`);
     }
 
     let tier: 'strict' | 'compromised' | 'rejected';
@@ -287,6 +319,10 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
       guruMudhaWarn,
       taraNote,
       brideTaraNote,
+      fatherTaraNote,
+      motherTaraNote,
+      fatherChandraNote,
+      motherChandraNote,
       chandraNote,
       kalasaChakraShuddhi,
       vrishabhaChakraShuddhi,

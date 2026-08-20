@@ -341,3 +341,6 @@ button.secondary:hover { background: #fdf2df; }
   .knowledge-choice { flex-direction: column; }
   .choice-btn { min-width: 0; }
 }
+
+.activity-dedicated-header { margin-bottom: 0.8rem; padding-bottom: 0.6rem; border-bottom: 2px solid var(--accent); }
+.activity-dedicated-header h3 { margin: 0 0 0.2rem; color: var(--accent-dark); font-size: 1.15rem; }

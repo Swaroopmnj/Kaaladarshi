@@ -42,6 +42,7 @@ import { SOUTH_INDIAN_GRID, planetAbbr, RASHI_DEVANAGARI } from './lib/southIndi
 import { runMuhurtaSearch, describeTara, type EnrichedDay } from './lib/search';
 import { localDateAtMidnight, localDateTime, toRealInstant, DISPLAY_TZ, REAL_TZ, isNextCalendarDay } from './lib/dateUtils';
 import { searchIndiaPlaces, reverseGeocodeIndia, getBrowserLocation, type IndiaPlaceResult } from './lib/locationSearch';
+import { findNamaCandidates, NAMA_PADA_TABLE, type NamaPada } from './lib/namaNakshatra';
 import './App.css';
 
 function fmtDate(d: Date) {
@@ -150,6 +151,27 @@ const NAKSHATRA_LORD_CYCLE = ['Ketu', 'Venus', 'Sun', 'Moon', 'Mars', 'Rahu', 'J
 function nakshatraLordFromLongitude(longitude: number): string {
   const idx = Math.floor(longitude / (360 / 27)) % 27;
   return NAKSHATRA_LORD_CYCLE[idx % 9];
+}
+
+// A purchase (vehicle or property) has several distinct moments — advance/
+// booking, registration/agreement, and delivery/possession — and classical/
+// modern Muhurta practice does NOT treat them identically. Cross-verified
+// across several independent sources: for a VEHICLE, the muhurat applies to
+// DELIVERY/possession specifically (booking/payment can happen any working
+// day; registration is secondary, nice-to-have on a good weekday). For
+// PROPERTY, the muhurat applies most critically to REGISTRATION/the sale
+// deed (the moment ownership legally transfers); the token/advance is
+// ideally also on a good date but is the least critical of the three;
+// taking POSSESSION (moving in) is a separate, later decision — that's
+// exactly what the existing Griha Pravesh activity already covers.
+function purchaseStageGuidance(activityKey: string): string | null {
+  if (activityKey === 'vahanKharidi') {
+    return 'For vehicles, apply this muhurat to the DELIVERY date (when you actually take possession and drive it), not the booking/payment date. Registration is secondary — align it with a good weekday if convenient, but it doesn\'t need its own muhurat.';
+  }
+  if (activityKey === 'grihaPravesh') {
+    return 'This activity is for the MOVE-IN/possession moment specifically. For the property REGISTRATION or sale-deed signing (the moment ownership legally transfers) — the more critical moment per most sources — check general Panchāṅga Śuddhi separately (avoid 4th/9th/14th tithi, Amāvasyā, Rāhu Kālam, Bhadrā; Thursday/Friday are favoured). The token/advance payment is the least critical of the three and can usually be flexible.';
+  }
+  return null;
 }
 
 // Which houses (from the given Lagna) a planet rules, based on which two (or
@@ -282,8 +304,15 @@ export default function App() {
   const [groomRashiIdx, setGroomRashiIdx] = useState(0);
   const [manualStarMode, setManualStarMode] = useState(false);
   const [knowledgeMode, setKnowledgeMode] = useState<'birth' | 'star' | 'name' | null>(null);
+  const [namaQuery, setNamaQuery] = useState('');
+  const [namaSelected, setNamaSelected] = useState<NamaPada | null>(null);
+  const namaCandidates = useMemo(() => findNamaCandidates(namaQuery), [namaQuery]);
   const [brideNakshatraIdx, setBrideNakshatraIdx] = useState(0);
   const [brideRashiIdx, setBrideRashiIdx] = useState(0);
+  const [fatherNakshatraIdx, setFatherNakshatraIdx] = useState(0);
+  const [fatherRashiIdx, setFatherRashiIdx] = useState(0);
+  const [motherNakshatraIdx, setMotherNakshatraIdx] = useState(0);
+  const [motherRashiIdx, setMotherRashiIdx] = useState(0);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [selectedFullReport, setSelectedFullReport] = useState<{ key: string; day: EnrichedDay; city: ReturnType<typeof resolveCity>; activityKey: string; activityLabel: string } | null>(null);
 
@@ -326,6 +355,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
 
   const isVivah = activityKey === 'vivah';
+  const isUpanayanam = activityKey === 'upanayanam';
   const ashtakoot: AshtakootResult | null = useMemo(() => {
     if (!isVivah || !manualStarMode) return null;
     return computeAshtakoot(
@@ -470,6 +500,10 @@ export default function App() {
         groomRashiIdx,
         brideNakshatraIdx,
         brideRashiIdx,
+        fatherNakshatraIdx: isUpanayanam ? fatherNakshatraIdx : undefined,
+        fatherRashiIdx: isUpanayanam ? fatherRashiIdx : undefined,
+        motherNakshatraIdx: isUpanayanam ? motherNakshatraIdx : undefined,
+        motherRashiIdx: isUpanayanam ? motherRashiIdx : undefined,
       });
       setResults(enriched);
     } catch (e) {
@@ -753,6 +787,7 @@ export default function App() {
               <option key={a.key} value={a.key}>{a.label}</option>
             ))}
           </select>
+          {purchaseStageGuidance(activityKey) && <p className="hint">📌 {purchaseStageGuidance(activityKey)}</p>}
         </div>
 
         <div className="field-row">
@@ -911,6 +946,7 @@ export default function App() {
               ))}
             </select>
             {isVivah && knowledgeMode !== 'star' && <p className="hint">Marriage needs both partners' Nakṣatra/Rāśi — pick "I know my Nakṣatra &amp; Rāśi" below to unlock it (birth-detail mode is single-person only for now).</p>}
+            {purchaseStageGuidance(activityKey) && <p className="hint">📌 {purchaseStageGuidance(activityKey)}</p>}
           </div>
           <div className="field-row">
             <div className="field">
@@ -1010,6 +1046,10 @@ export default function App() {
 
           {knowledgeMode === 'star' && isVivah && (
             <div className="wizard-step">
+              <div className="activity-dedicated-header">
+                <h3>💑 Vivāha Muhūrta</h3>
+                <p className="sub-label">For you and your partner — this is a joint decision, so both sets of details matter equally.</p>
+              </div>
               <div className="field-row">
                 <div className="field">
                   <label>Groom's Nakshatra</label>
@@ -1050,10 +1090,63 @@ export default function App() {
                   </ul>
                 </div>
               )}
+              <p className="hint">Every candidate date below combines both of your Tārābala and Chandra Bala using a "weakest link" rule — if either of you has a defect on a given day, that day is flagged as a compromise rather than silently averaged away. This combination rule is our own design choice, since no single classical formula for combining two people's Tārābala was found.</p>
             </div>
           )}
 
-          {knowledgeMode === 'star' && !isVivah && (
+          {knowledgeMode === 'star' && isUpanayanam && (
+            <div className="wizard-step">
+              <div className="activity-dedicated-header">
+                <h3>🕉️ Upanayanam Muhūrta</h3>
+                <p className="sub-label">Traditionally checked for all three — father, mother, and the son receiving the sacred thread.</p>
+              </div>
+              <div className="field-row">
+                <div className="field">
+                  <label>Son's Nakshatra</label>
+                  <select value={nakshatraIdx} onChange={(e) => setNakshatraIdx(Number(e.target.value))}>
+                    {NAKSHATRAS.map((n, i) => <option key={n} value={i}>{n}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Son's Rāśi</label>
+                  <select value={rashiIdx} onChange={(e) => setRashiIdx(Number(e.target.value))}>
+                    {RASHIS.map((r, i) => <option key={r} value={i}>{r}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="field-row">
+                <div className="field">
+                  <label>Father's Nakshatra</label>
+                  <select value={fatherNakshatraIdx} onChange={(e) => setFatherNakshatraIdx(Number(e.target.value))}>
+                    {NAKSHATRAS.map((n, i) => <option key={n} value={i}>{n}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Father's Rāśi</label>
+                  <select value={fatherRashiIdx} onChange={(e) => setFatherRashiIdx(Number(e.target.value))}>
+                    {RASHIS.map((r, i) => <option key={r} value={i}>{r}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="field-row">
+                <div className="field">
+                  <label>Mother's Nakshatra</label>
+                  <select value={motherNakshatraIdx} onChange={(e) => setMotherNakshatraIdx(Number(e.target.value))}>
+                    {NAKSHATRAS.map((n, i) => <option key={n} value={i}>{n}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Mother's Rāśi</label>
+                  <select value={motherRashiIdx} onChange={(e) => setMotherRashiIdx(Number(e.target.value))}>
+                    {RASHIS.map((r, i) => <option key={r} value={i}>{r}</option>)}
+                  </select>
+                </div>
+              </div>
+              <p className="hint">Every candidate date below combines all three people's Tārābala and Chandra Bala using the same "weakest link" rule as marriage — a defect for any one of the three flags the day as a compromise. Own design choice, not a claimed classical formula.</p>
+            </div>
+          )}
+
+          {knowledgeMode === 'star' && !isVivah && !isUpanayanam && (
             <div className="wizard-step">
               <div className="field-row">
                 <div className="field">
@@ -1078,26 +1171,86 @@ export default function App() {
 
           {knowledgeMode === 'name' && (
             <div className="wizard-step">
-              <div className="verdict-card blocked">
-                <h4>Nāma Nakṣatra estimator — not available yet</h4>
-                <p>
-                  Traditionally, the first syllable of a name was chosen from a fixed 108-syllable
-                  table tied to your birth Nakṣatra's pāda, so an old-fashioned name can hint at your
-                  Nakṣatra. We haven't added this yet — we'd rather source the syllable table properly
-                  than guess at something used for real personal decisions.
+              <div className="verdict-card">
+                <h4>Nāma Nakṣatra — estimate from your name</h4>
+                <p className="sub-label">
+                  Traditionally, a child's name began with a syllable fixed by their exact birth Pāda
+                  (the classical Avakahada Chakra, 108 syllables across 27 nakṣatras). Type your name's
+                  starting sound below to see which Nakṣatra(s) it's traditionally linked to.
                 </p>
                 <p className="hint">
-                  In the meantime: check an old family horoscope document, ask family members who may
-                  remember, or contact the temple/registrar where your Nāmakaraṇa (naming ceremony) was
-                  performed. You can also proceed with a general (non-personalised) search on the{' '}
-                  <button type="button" className="link-button" onClick={() => setTab('finder')}>Muhurat Finder</button> tab meanwhile.
+                  <strong>Important:</strong> several Pādas share similar-sounding syllables, and modern
+                  names don't always strictly follow this system. This narrows down candidates — it
+                  can't give you a single certain answer. Pick the one that best matches what you know
+                  (family stories, region, etc.), or use the full table below to browse directly.
                 </p>
+                <div className="field">
+                  <label>First few letters of your name</label>
+                  <input type="text" value={namaQuery} onChange={(e) => setNamaQuery(e.target.value)} placeholder="e.g. Chandana, Ravi, Deepa…" />
+                </div>
+                {namaQuery.trim() && (
+                  namaCandidates.length > 0 ? (
+                    <div className="place-results">
+                      {namaCandidates.map((c) => (
+                        <button
+                          type="button"
+                          key={`${c.nakshatraIndex}-${c.pada}`}
+                          className="place-result"
+                          onClick={() => { setNakshatraIdx(c.nakshatraIndex); setNamaSelected(c); }}
+                        >
+                          "{c.syllable}" → {c.nakshatraName}, pāda {c.pada}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="hint">No match found for that starting sound — try the table below, or a different spelling.</p>
+                  )
+                )}
+                {namaSelected && (
+                  <p className="hint" style={{ marginTop: '0.5rem' }}>
+                    ✓ Using <strong>{namaSelected.nakshatraName}</strong> (from pāda {namaSelected.pada}, syllable "{namaSelected.syllable}") as your estimated Nakṣatra.
+                    Your Rāśi (Moon sign) can't be reliably derived from a name, so pick it manually if you know it — it's optional for the Tārābala check but improves Chandra Bala accuracy.
+                  </p>
+                )}
+                <details className="technical-details">
+                  <summary><strong>Browse the full 108-syllable table</strong></summary>
+                  <div className="table-wrap">
+                    <table className="dosha-table">
+                      <thead><tr><th>Nakṣatra</th><th>Pāda 1</th><th>Pāda 2</th><th>Pāda 3</th><th>Pāda 4</th></tr></thead>
+                      <tbody>
+                        {NAKSHATRAS.map((n, i) => {
+                          const padas = NAMA_PADA_TABLE.filter((p) => p.nakshatraIndex === i);
+                          return (
+                            <tr key={n}>
+                              <td>{n}</td>
+                              {padas.map((p) => (
+                                <td key={p.pada}>
+                                  <button type="button" className="link-button" onClick={() => { setNakshatraIdx(i); setNamaSelected(p); }}>{p.syllable}</button>
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+                {namaSelected && (
+                  <div className="field-row" style={{ marginTop: '1rem' }}>
+                    <div className="field">
+                      <label>Rāśi (Moon sign) — optional, pick if you know it</label>
+                      <select value={rashiIdx} onChange={(e) => setRashiIdx(Number(e.target.value))}>
+                        {RASHIS.map((r, i) => <option key={r} value={i}>{r}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
         </section>
 
-        {((knowledgeMode === 'birth' && birthChart) || (knowledgeMode === 'star' && (!isVivah || (ashtakoot !== null)))) && (
+        {((knowledgeMode === 'birth' && birthChart) || (knowledgeMode === 'star' && (!isVivah || (ashtakoot !== null))) || (knowledgeMode === 'name' && !!namaSelected)) && (
           <>
             <section className="panel form-panel">
               <button className="primary" onClick={runSearch} disabled={loading}>
