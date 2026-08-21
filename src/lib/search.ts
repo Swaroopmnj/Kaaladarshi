@@ -192,29 +192,23 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
 
     let kalasaChakraShuddhi: boolean | undefined;
     let vrishabhaChakraShuddhi: boolean | undefined;
-    // Kalasa Chakra Shuddhi is specifically for Griha Pravesha (housewarming/
-    // move-in) — predicts wealth/peace/prosperity in the new home.
-    // Vrishabha Chakra Shuddhi is specifically for Bhoomi Puja / Griharambha
-    // (foundation-laying/starting construction) — ensures structural
-    // stability. These are two DIFFERENT chakras for two DIFFERENT
-    // activities, not one shared value.
-    //
-    // Sourcing (rechecked on request): TWO independent sources give this
-    // clean split explicitly — onlinejyotish.com's Muhurta Helper page, and
-    // separately sreenivasdesabhatla's Gruhapravesam page (a source already
-    // cross-validated elsewhere in this app) states it almost word-for-word:
-    // "Kalasa chakra suddhi for Gruha Pravesam and Vrishabha chakra suddhi
-    // for Gruha Arambham." ONE weaker, less detailed source (a 2018 blog
-    // post) lists both chakras together under a general Griha Pravesham
-    // checklist, suggesting possible overlap. Kept the clean split as the
-    // primary rule given the stronger 2-vs-1 sourcing, but this isn't
-    // unanimous — noted here rather than silently picking a side.
+    // Kalasa Chakra Shuddhi and Vrishabha Chakra Shuddhi are both derived
+    // from the same distance-from-Revati calculation (isChakraShuddhi);
+    // which one(s) apply is activity-specific — see the correction note
+    // directly below.
+    // CORRECTED per direct instruction from the app owner (family/personal
+    // tradition, overriding the earlier web-sourced version of this rule):
+    // Griha Pravesha (housewarming) requires BOTH Kalasa AND Vrishabha
+    // Chakra Shuddhi to be pure — not just one. Griha Arambha (foundation-
+    // laying / Bhoomi Puja) requires only Kalasa Chakra Shuddhi. Explicitly
+    // told not to re-verify this against outside sources — treated as
+    // authoritative, documented here rather than silently changed.
     if (p.activityKey === 'grihaPravesh' || p.activityKey === 'bhoomiPuja') {
       const dayNakIdx = NAKSHATRAS.findIndex((n) => nakshatraName.toLowerCase().startsWith(n.toLowerCase().slice(0, 6)));
       if (dayNakIdx >= 0) {
         const shuddhi = isChakraShuddhi(dayNakIdx);
-        if (p.activityKey === 'grihaPravesh') kalasaChakraShuddhi = shuddhi;
-        if (p.activityKey === 'bhoomiPuja') vrishabhaChakraShuddhi = shuddhi;
+        kalasaChakraShuddhi = shuddhi;
+        if (p.activityKey === 'grihaPravesh') vrishabhaChakraShuddhi = shuddhi;
         if (!shuddhi) finalScore = Math.max(0, finalScore - 25);
       }
     }
@@ -282,11 +276,13 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
     } else clearedChecks.push('Vyatipata/Vaidhruthi/Gandanthara: none active');
 
     if (kalasaChakraShuddhi === false || vrishabhaChakraShuddhi === false) {
-      const chakraName = kalasaChakraShuddhi === false ? 'Kalasa' : 'Vrishabha';
+      const both = kalasaChakraShuddhi !== undefined && vrishabhaChakraShuddhi !== undefined;
+      const chakraName = both ? 'Kalasa and Vrishabha' : kalasaChakraShuddhi === false ? 'Kalasa' : 'Vrishabha';
       compromises.push(
         `${chakraName} Chakra Shuddhi not pure — thumb rule: the muhurta nakṣatra's distance from Revati should fall in the auspicious band (6–13 or 22–27); this one doesn't. No exception applies — this is a real compromise weighed against the day's other strengths.`,
       );
-    } else if (kalasaChakraShuddhi === true) clearedChecks.push('Kalasa Chakra Shuddhi: pure');
+    } else if (kalasaChakraShuddhi === true && vrishabhaChakraShuddhi === true) clearedChecks.push('Kalasa and Vrishabha Chakra Shuddhi: both pure');
+    else if (kalasaChakraShuddhi === true) clearedChecks.push('Kalasa Chakra Shuddhi: pure');
     else if (vrishabhaChakraShuddhi === true) clearedChecks.push('Vrishabha Chakra Shuddhi: pure');
 
     if (p.personalize) {

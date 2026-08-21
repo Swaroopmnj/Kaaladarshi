@@ -307,6 +307,21 @@ export default function App() {
   const [panchang, setPanchang] = useState<DailyPanchangResult | null>(null);
 
   const [activityKey, setActivityKey] = useState('vivah');
+
+  // Muhurat Finder never offers marriage as a blind search (it needs at
+  // least Nakshatra/Rashi to be meaningful — see the note in that tab).
+  // activityKey defaults to 'vivah' on fresh load, and can also still be
+  // 'vivah' if the person arrives at Finder right after using Personalised
+  // Muhurat's Vivaha tab. Previously the Finder dropdown only faked a
+  // different DISPLAYED value in that case while leaving the real
+  // activityKey state on 'vivah' underneath — so a search would silently
+  // run for marriage while the screen showed something else selected.
+  // This actively corrects the real state instead of just faking the
+  // display, so search results can never again disagree with what's shown.
+  useEffect(() => {
+    if (tab === 'finder' && activityKey === 'vivah') setActivityKey('grihaPravesh');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, activityKey]);
   const today = new Date();
   const inThreeMonths = new Date();
   inThreeMonths.setMonth(inThreeMonths.getMonth() + 3);
@@ -468,12 +483,14 @@ export default function App() {
       const dWarn = dayContext.ayana === 'Dakshinayana' && !inKartikaException && !ayanaHardBlocked ? DAKSHINAYANA_WARN[a.key] : undefined;
       let kalasaChakraShuddhi: boolean | undefined;
       let vrishabhaChakraShuddhi: boolean | undefined;
+      // Griha Pravesha requires BOTH chakras pure; Griha Arambha/Bhoomi Puja
+      // requires only Kalasa — see the fuller correction note in search.ts.
       if (a.key === 'grihaPravesh' || a.key === 'bhoomiPuja') {
         const dayNakIdx = NAKSHATRAS.findIndex((n) => nakshatraName.toLowerCase().startsWith(n.toLowerCase().slice(0, 6)));
         if (dayNakIdx >= 0) {
           const shuddhi = isChakraShuddhi(dayNakIdx);
-          if (a.key === 'grihaPravesh') kalasaChakraShuddhi = shuddhi;
-          if (a.key === 'bhoomiPuja') vrishabhaChakraShuddhi = shuddhi;
+          kalasaChakraShuddhi = shuddhi;
+          if (a.key === 'grihaPravesh') vrishabhaChakraShuddhi = shuddhi;
         }
       }
       const lagnaWindows = getGoodTimeWindows(panchang, { latitude: pCity.latitude, longitude: pCity.longitude }, pCity.timezone);
@@ -832,7 +849,7 @@ export default function App() {
       <section className="panel form-panel">
         <div className="field">
           <label>Activity (Muhūrta)</label>
-          <select value={activityKey === 'vivah' ? 'grihaPravesh' : activityKey} onChange={(e) => setActivityKey(e.target.value)}>
+          <select value={activityKey} onChange={(e) => setActivityKey(e.target.value)}>
             {ACTIVITIES.filter((a) => a.key !== 'vivah').map((a) => (
               <option key={a.key} value={a.key}>{a.label}</option>
             ))}
