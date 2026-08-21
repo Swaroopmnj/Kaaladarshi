@@ -21,7 +21,7 @@ import {
   type AshtakootResult,
   type BirthChart,
 } from 'panchang-ts';
-import { ACTIVITIES, NAKSHATRAS, RASHIS, PANCHAKA_ACTIVITY_KEY, DEFAULT_CITY_INDEX, CUSTOM_LOCATION_INDEX, resolveCity } from './lib/constants';
+import { ACTIVITIES, NAKSHATRAS, RASHIS, PANCHAKA_ACTIVITY_KEY, DEFAULT_CITY_INDEX, CUSTOM_LOCATION_INDEX, PERSONALIZATION_TIER, resolveCity } from './lib/constants';
 import { panchakaTypeFromNakshatra, getPanchakaVerdict, calculatePanchakaRahita, extractTithiNumber, varaNumberFromName } from './lib/panchaka';
 import { MAHADOSHAS } from './lib/mahadoshas';
 import { evaluateElectionMahadoshas, RASHI_LORD } from './lib/electionDoshas';
@@ -1001,7 +1001,7 @@ export default function App() {
           <button type="button" className={isVivah ? 'active' : ''} onClick={() => { setActivityKey('vivah'); setKnowledgeMode(null); }}>💑 Vivāha</button>
           <button type="button" className={activityKey === 'grihaPravesh' ? 'active' : ''} onClick={() => { setActivityKey('grihaPravesh'); setKnowledgeMode(null); }}>🏠 Griha Pravesh</button>
           <button type="button" className={isUpanayanam ? 'active' : ''} onClick={() => { setActivityKey('upanayanam'); setKnowledgeMode(null); }}>🕉️ Upanayanam</button>
-          <button type="button" className={!isVivah && !isUpanayanam && activityKey !== 'grihaPravesh' ? 'active' : ''} onClick={() => setKnowledgeMode(null)}>Other activity</button>
+          <button type="button" className={!isVivah && !isUpanayanam && activityKey !== 'grihaPravesh' ? 'active' : ''} onClick={() => { setKnowledgeMode(null); if (isVivah || isUpanayanam || activityKey === 'grihaPravesh') setActivityKey('namakarana'); }}>Other activity</button>
         </div>
         {isVivah && (
           <div className="sub-tabs">
@@ -1078,6 +1078,21 @@ export default function App() {
 
         <section className="panel form-panel">
           <p className="sub-label">Step 2 — What do you know about yourself{isVivah ? ' (and your partner)' : ''}?</p>
+          {PERSONALIZATION_TIER[activityKey] === 1 ? (
+            <p className="hint">📌 This activity benefits most from full birth details — {isVivah ? 'both partners\'' : isUpanayanam ? "the boy's, father's, and mother's" : 'exact date/time/place matter for the strongest result.'}{!isVivah && !isUpanayanam && ' Nakṣatra/Rāśi alone still works, but the full chart unlocks natal Lagna cross-checks.'}</p>
+          ) : (
+            <p className="hint">📌 Nakṣatra &amp; Rāśi is genuinely sufficient for this activity — exact birth details are an optional upgrade (unlocks natal Lagna cross-checks in the Full Report), not a requirement.</p>
+          )}
+          {isUpanayanam && (
+            <p className="hint">
+              ⚠️ Upanayanam is the most demanding of these to fully automate. Beyond the 3-way
+              Tārābala/Chandra Bala check already run here, classical practice also verifies
+              Jupiter/Sun's transit strength and checks for affliction to the boy's natal Lagna —
+              neither of those two specific checks is implemented yet. Treat this app's Upanayanam
+              result as a solid shortlist, not the final word — this one especially benefits from a
+              family astrologer's review before finalising.
+            </p>
+          )}
           <div className="knowledge-choice">
             <button type="button" className={`choice-btn ${knowledgeMode === 'birth' ? 'active' : ''}`} onClick={() => { setKnowledgeMode('birth'); setManualStarMode(isVivah); }}>
               📅 I know exact birth date, time &amp; place
@@ -1132,13 +1147,22 @@ export default function App() {
 
               {birthChart && (
                 <div className="verdict-card good">
-                  <h4>{isVivah ? "Groom's" : 'Your'} birth chart</h4>
+                  <h4>{isVivah ? "Groom's" : activityKey === 'namakarana' ? "The infant's" : 'Your'} birth chart</h4>
                   <ul className="reasons">
                     <li>Nakshatra: {birthChart.nakshatra} (pada {birthChart.pada})</li>
                     <li>Rāśi (Moon sign): {birthChart.rashi}</li>
                     <li>Lagna (Ascendant): {birthChart.lagna}</li>
                   </ul>
-                  {!isVivah && (
+                  {activityKey === 'namakarana' && (() => {
+                    const match = NAMA_PADA_TABLE.find(p => p.nakshatraName === birthChart.nakshatra && p.pada === birthChart.pada);
+                    return match ? (
+                      <p className="hint">
+                        📌 Per the classical Avakahada Chakra (Nāmakaraṇa Akṣara), this exact
+                        Nakṣatra+pāda traditionally starts a name with the syllable <strong>"{match.syllable}"</strong>.
+                      </p>
+                    ) : null;
+                  })()}
+                  {!isVivah && activityKey !== 'namakarana' && (
                     <p className="hint">
                       This is a quick summary. For your full birth chart — Rāśi (D1) and Navāṁśa (D9)
                       charts, every planet's house, and your Vimśottari Daśā — generate it in the{' '}

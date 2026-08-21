@@ -40,6 +40,55 @@ export const ACTIVITIES: ActivityDef[] = [
   { key: 'travelStart', label: 'Travel Start' },
 ];
 
+/**
+ * Personalization tier, per the two-layer Jyotish framework the user
+ * supplied directly: Tier 1 = full Kundali (multi-person where relevant),
+ * Tier 2 = Nakshatra/Rashi is sufficient. None of our 19 activities land
+ * in "Tier 3 / general Panchanga only" — every one is a genuine samskara
+ * or a significant personal commitment, confirmed directly by the user
+ * ("yes tier 3 activities... not needed" for this app).
+ *
+ * Tier 1, user-specified directly:
+ *   vivah (bride+groom), upanayanam (boy+father+mother), grihaPravesh
+ *   (household head, ideally +spouse), namakarana (infant's exact time —
+ *   needed to identify the Pada that fixes the naming syllable).
+ *
+ * Tier 2, user-specified directly:
+ *   vahanKharidi, homeBuying, advancePayment, agreementSigning,
+ *   travelStart, vidyarambh, aksharabhyasam, houseShifting.
+ *
+ * The remaining 5 (bhoomiPuja, garbhadhana, annaprashan, mundan,
+ * karnavedha, seemantham, shopOpening) were NOT in the user's worked
+ * examples. Placed at Tier 2 as a reasoned default — each is a real
+ * samskara/commitment (not the light "Haldi/Mehendi" tier-3 examples the
+ * user gave), but none were described as needing a MULTI-person Kundali
+ * the way Vivaha/Upanayanam/Griha Pravesh explicitly were. Flagged
+ * in-code rather than silently assumed, since the user hasn't confirmed
+ * these specifically — happy to move any of them to Tier 1 on request.
+ */
+export const PERSONALIZATION_TIER: Record<string, 1 | 2> = {
+  vivah: 1,
+  upanayanam: 1,
+  grihaPravesh: 1,
+  namakarana: 1,
+  vahanKharidi: 2,
+  homeBuying: 2,
+  advancePayment: 2,
+  agreementSigning: 2,
+  travelStart: 2,
+  vidyarambh: 2,
+  aksharabhyasam: 2,
+  houseShifting: 2,
+  // Reasoned defaults, not user-confirmed — see comment above.
+  bhoomiPuja: 2,
+  garbhadhana: 2,
+  annaprashan: 2,
+  mundan: 2,
+  karnavedha: 2,
+  seemantham: 2,
+  shopOpening: 2,
+};
+
 // Maps a panchang-ts occasion key to the classical-exception key used in panchaka.ts
 export const PANCHAKA_ACTIVITY_KEY: Record<string, string> = {
   vivah: 'vivah',
