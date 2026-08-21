@@ -1,6 +1,7 @@
 import type { DailyPanchangResult } from 'panchang-ts';
 import { computeLagna } from 'panchang-ts';
 import { getBhadraIntervals } from './bhadra';
+import { getVarjyamIntervals } from './varjyam';
 import { toRealInstant } from './dateUtils';
 
 export interface NamedWindow {
@@ -44,6 +45,7 @@ function badPeriodsFor(panchang: DailyPanchangResult): Period[] {
     panchang.gulikaKalam && { ...panchang.gulikaKalam, label: 'Gulika Kāla' },
     ...panchang.durMuhurta.map((p) => ({ ...p, label: 'Dur Muhūrta' })),
     ...getBhadraIntervals(panchang).filter((b) => b.blocking).map((b) => ({ start: b.start, end: b.end, label: 'Mṛtyuloka Bhadrā' })),
+    ...getVarjyamIntervals(panchang).map((v) => ({ start: v.start, end: v.end, label: `Varjyam (${v.nakshatraName})` })),
   ].filter(Boolean) as Period[];
 }
 
@@ -69,6 +71,45 @@ function refineBoundary(lo: Date, hi: Date, oldIndex: number, location: WindowLo
  * Choghadiya/Abhijit remain Panchanga annotations only and do not decide whether a
  * Lagna is allowed to enter the Muhurta engine.
  */
+/**
+ * Splits a window at every tithi/nakshatra/yoga/karana boundary that falls
+ * strictly inside it, so every returned piece has a single stable limb
+ * combination throughout — never a window that starts in one tithi and
+ * ends in another. This was the P0 gap flagged in the audit: previously a
+ * window like 10:00–11:45 could contain a tithi change at 10:30 and a
+ * nakshatra change at 11:10, and every downstream check (Panchaka Rahita,
+ * election-chart casting, the Full Report) sampled only the MIDPOINT to
+ * decide "the" tithi/nakshatra for the whole window — which could be
+ * clean while either end genuinely wasn't. Pieces under 5 minutes are
+ * dropped as too narrow to reliably act within.
+ */
+function splitAtLimbBoundaries(window: NamedWindow, panchang: DailyPanchangResult): NamedWindow[] {
+  const boundaries = [
+    ...panchang.tithis.map((x) => x.endTime),
+    ...panchang.nakshatras.map((x) => x.endTime),
+    ...panchang.yogas.map((x) => x.endTime),
+    ...panchang.karanas.map((x) => x.endTime),
+  ]
+    .filter((t): t is Date => !!t && t.getTime() > window.start.getTime() && t.getTime() < window.end.getTime())
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  if (boundaries.length === 0) return [window];
+
+  const MIN_MS = 5 * 60 * 1000;
+  const pieces: NamedWindow[] = [];
+  let segStart = window.start;
+  for (const b of boundaries) {
+    if (b.getTime() - segStart.getTime() >= MIN_MS) {
+      pieces.push({ ...window, start: segStart, end: b });
+    }
+    segStart = b;
+  }
+  if (window.end.getTime() - segStart.getTime() >= MIN_MS) {
+    pieces.push({ ...window, start: segStart, end: window.end });
+  }
+  return pieces;
+}
+
 export function getLagnaWindows(
   panchang: DailyPanchangResult,
   location: WindowLocation,
@@ -108,7 +149,10 @@ export function getLagnaWindows(
   if (segStart < end) raw.push({ label: `${current.name} Lagna`, start: segStart, end });
 
   const bad = badPeriodsFor(panchang);
-  return raw.flatMap(w => subtractBadPeriods(w, bad)).sort((a,b) => a.start.getTime() - b.start.getTime());
+  const survivingBadPeriods = raw.flatMap((w) => subtractBadPeriods(w, bad));
+  return survivingBadPeriods
+    .flatMap((w) => splitAtLimbBoundaries(w, panchang))
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
 }
 
 /**
