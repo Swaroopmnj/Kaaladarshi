@@ -468,12 +468,12 @@ export default function App() {
       const dWarn = dayContext.ayana === 'Dakshinayana' && !inKartikaException && !ayanaHardBlocked ? DAKSHINAYANA_WARN[a.key] : undefined;
       let kalasaChakraShuddhi: boolean | undefined;
       let vrishabhaChakraShuddhi: boolean | undefined;
-      if (a.key === 'grihaPravesh') {
+      if (a.key === 'grihaPravesh' || a.key === 'bhoomiPuja') {
         const dayNakIdx = NAKSHATRAS.findIndex((n) => nakshatraName.toLowerCase().startsWith(n.toLowerCase().slice(0, 6)));
         if (dayNakIdx >= 0) {
           const shuddhi = isChakraShuddhi(dayNakIdx);
-          kalasaChakraShuddhi = shuddhi;
-          vrishabhaChakraShuddhi = shuddhi;
+          if (a.key === 'grihaPravesh') kalasaChakraShuddhi = shuddhi;
+          if (a.key === 'bhoomiPuja') vrishabhaChakraShuddhi = shuddhi;
         }
       }
       const lagnaWindows = getGoodTimeWindows(panchang, { latitude: pCity.latitude, longitude: pCity.longitude }, pCity.timezone);
@@ -1019,14 +1019,21 @@ export default function App() {
         )}
         <section className="panel form-panel">
           <p className="sub-label">Step 1 — Activity &amp; location</p>
+          {(isVivah || isUpanayanam || activityKey === 'grihaPravesh') ? (
+            <div className="field">
+              <p className="current-location">
+                {isVivah ? '💑 Vivāha' : isUpanayanam ? '🕉️ Upanayanam' : '🏠 Griha Pravesh'} selected via the tabs above.
+              </p>
+              <p className="hint">To search for a different activity, switch to "Other activity" above — the dropdown only appears there, so it can't get out of sync with these tabs.</p>
+            </div>
+          ) : (
           <div className="field">
             <label>Activity (Muhūrta)</label>
-            <select value={isVivah && knowledgeMode !== 'star' && knowledgeMode !== 'birth' ? 'vivah-blocked' : activityKey} onChange={(e) => setActivityKey(e.target.value)}>
-              {ACTIVITIES.filter((a) => a.key !== 'vivah' || knowledgeMode === 'star' || knowledgeMode === 'birth').map((a) => (
+            <select value={activityKey} onChange={(e) => setActivityKey(e.target.value)}>
+              {ACTIVITIES.filter((a) => a.key !== 'vivah' && a.key !== 'upanayanam' && a.key !== 'grihaPravesh').map((a) => (
                 <option key={a.key} value={a.key}>{a.label}</option>
               ))}
             </select>
-            {isVivah && knowledgeMode !== 'star' && <p className="hint">Marriage needs both partners' Nakṣatra/Rāśi — pick "I know my Nakṣatra &amp; Rāśi" below to unlock it (birth-detail mode is single-person only for now).</p>}
             {purchaseStageGuidance(activityKey) && <p className="hint">📌 {purchaseStageGuidance(activityKey)}</p>}
             {(activityKey === 'advancePayment' || activityKey === 'agreementSigning') && (
               <>
@@ -1039,6 +1046,7 @@ export default function App() {
               </>
             )}
           </div>
+          )}
           <div className="field-row">
             <div className="field">
               <label>From</label>

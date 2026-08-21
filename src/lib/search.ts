@@ -192,12 +192,23 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
 
     let kalasaChakraShuddhi: boolean | undefined;
     let vrishabhaChakraShuddhi: boolean | undefined;
-    if (p.activityKey === 'grihaPravesh') {
+    // Kalasa Chakra Shuddhi is specifically for Griha Pravesha (housewarming/
+    // move-in) — predicts wealth/peace/prosperity in the new home.
+    // Vrishabha Chakra Shuddhi is specifically for Bhoomi Puja / Griharambha
+    // (foundation-laying/starting construction) — ensures structural
+    // stability. These are two DIFFERENT chakras for two DIFFERENT
+    // activities, not one shared value — verified directly against
+    // onlinejyotish.com's Muhurta Helper page, which states this exact
+    // activity split under "Understanding the 3 Chakras", cross-checked
+    // against the classical text it cites (Muhurta Chintamani). Previously
+    // both were incorrectly set to the same value and only checked for
+    // Griha Pravesh, meaning Bhoomi Puja never got its correct check at all.
+    if (p.activityKey === 'grihaPravesh' || p.activityKey === 'bhoomiPuja') {
       const dayNakIdx = NAKSHATRAS.findIndex((n) => nakshatraName.toLowerCase().startsWith(n.toLowerCase().slice(0, 6)));
       if (dayNakIdx >= 0) {
         const shuddhi = isChakraShuddhi(dayNakIdx);
-        kalasaChakraShuddhi = shuddhi;
-        vrishabhaChakraShuddhi = shuddhi;
+        if (p.activityKey === 'grihaPravesh') kalasaChakraShuddhi = shuddhi;
+        if (p.activityKey === 'bhoomiPuja') vrishabhaChakraShuddhi = shuddhi;
         if (!shuddhi) finalScore = Math.max(0, finalScore - 25);
       }
     }
@@ -265,10 +276,12 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
     } else clearedChecks.push('Vyatipata/Vaidhruthi/Gandanthara: none active');
 
     if (kalasaChakraShuddhi === false || vrishabhaChakraShuddhi === false) {
+      const chakraName = kalasaChakraShuddhi === false ? 'Kalasa' : 'Vrishabha';
       compromises.push(
-        'Chakra Shuddhi not pure — thumb rule: the muhurta nakṣatra\'s distance from Revati should fall in the auspicious band (6–13 or 22–27); this one doesn\'t. No exception applies — this is a real compromise weighed against the day\'s other strengths.',
+        `${chakraName} Chakra Shuddhi not pure — thumb rule: the muhurta nakṣatra's distance from Revati should fall in the auspicious band (6–13 or 22–27); this one doesn't. No exception applies — this is a real compromise weighed against the day's other strengths.`,
       );
-    } else if (kalasaChakraShuddhi === true) clearedChecks.push('Kalasa/Vrishabha Chakra Shuddhi: pure');
+    } else if (kalasaChakraShuddhi === true) clearedChecks.push('Kalasa Chakra Shuddhi: pure');
+    else if (vrishabhaChakraShuddhi === true) clearedChecks.push('Vrishabha Chakra Shuddhi: pure');
 
     if (p.personalize) {
       const taraBad = taraNote?.includes('inauspicious');
