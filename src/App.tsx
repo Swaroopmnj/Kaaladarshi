@@ -473,9 +473,10 @@ export default function App() {
         { timezone: pCity.timezone },
       );
       const nakshatraName = panchang.nakshatras[0]?.name ?? '';
-      const type = panchakaTypeFromNakshatra(nakshatraName);
       const panchakaKey = PANCHAKA_ACTIVITY_KEY[a.key] ?? a.key;
-      const verdict = getPanchakaVerdict(panchakaKey, panchang.panchaka, type);
+      const sunriseLagna = computeLagna(toRealInstant(panchang.sunrise, pCity.timezone), { latitude: pCity.latitude, longitude: pCity.longitude }, 'lahiri');
+      const panchakaRahita = panchakaRahitaAtWindow(panchang.tithis[0], panchang.vara.englishName, nakshatraName, sunriseLagna.rashi.index ?? 0);
+      const verdict = getPanchakaVerdict(panchakaKey, panchakaRahita, panchang.panchaka);
       const bhadraVerdict = getBhadraDayVerdict(panchang);
       const inKartikaException = a.key === 'grihaPravesh' && KARTIKA_DAKSHINAYANA_EXCEPTION.has(a.key) && panchang.chandramasa.name === 'Kartika';
       const ayanaHardBlocked = dayContext.ayana === 'Dakshinayana' && DAKSHINAYANA_HARD_BLOCK.has(a.key);

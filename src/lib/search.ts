@@ -3,13 +3,14 @@ import {
   computeTarabala,
   computeChandraBalam,
   computePlanetaryPositions,
+  computeLagna,
   STOCK_MUHURTA_RULES,
   type MuhurtaDay,
   type MuhurtaRule,
 } from 'panchang-ts';
 import { NAKSHATRAS, RASHIS, PANCHAKA_ACTIVITY_KEY, type CityPreset } from './constants';
 import { CUSTOM_ACTIVITY_RULES } from './customActivities';
-import { panchakaTypeFromNakshatra, getPanchakaVerdict } from './panchaka';
+import { getPanchakaVerdict, calculatePanchakaRahita, extractTithiNumber, varaNumberFromName } from './panchaka';
 import {
   getAyana,
   DAKSHINAYANA_WARN,
@@ -113,9 +114,21 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
   const enriched: EnrichedDay[] = days.map((d) => {
     const panchang = d.panchang;
     const nakshatraName = panchang.nakshatras[0]?.name ?? '';
-    const type = panchakaTypeFromNakshatra(nakshatraName);
     const panchakaKey = PANCHAKA_ACTIVITY_KEY[p.activityKey] ?? p.activityKey;
-    const verdict = getPanchakaVerdict(panchakaKey, panchang.panchaka, type);
+    // Day-level Panchaka Rahita, computed from the sunrise-based reference
+    // point (same approximation pattern used elsewhere for day-level
+    // checks in this app — e.g. Tarabala). The precise per-window value at
+    // each specific candidate time is still shown separately in the Full
+    // Report; this is what actually drives the day-level score/tier now,
+    // closing a real gap where Panchaka Rahita was calculated but never
+    // affected which days scored well.
+    const tithiNum = extractTithiNumber(panchang.tithis[0]);
+    const varaNum = varaNumberFromName(panchang.vara.englishName);
+    const nakNum = NAKSHATRAS.findIndex((n) => nakshatraName.toLowerCase().startsWith(n.toLowerCase().slice(0, 6))) + 1;
+    const sunriseLagna = computeLagna(toRealInstant(panchang.sunrise, p.city.timezone), { latitude: p.city.latitude, longitude: p.city.longitude }, 'lahiri');
+    const lagnaNum = (sunriseLagna.rashi.index ?? 0) + 1;
+    const panchakaRahita = tithiNum && varaNum && nakNum > 0 ? calculatePanchakaRahita(tithiNum, varaNum, nakNum, lagnaNum) : null;
+    const verdict = getPanchakaVerdict(panchakaKey, panchakaRahita, panchang.panchaka);
     const bhadraVerdict = getBhadraDayVerdict(panchang);
     const nakRule = activityNakshatraRule(p.activityKey, nakshatraName);
 
@@ -186,6 +199,7 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
     if (verdict.blocked) finalScore = Math.max(0, finalScore - 40);
     // Bhadrā is interval-based: never deduct/reject the entire day here.
     if (ayanaHardBlocked) finalScore = 0;
+    if (['vivah', 'upanayanam', 'grihaPravesh'].includes(p.activityKey) && (shukraMudhaWarn || guruMudhaWarn)) finalScore = 0;
     if (chaturmasaWarn) finalScore = Math.max(0, finalScore - 25);
     if (taraNote?.includes('inauspicious')) finalScore = Math.max(0, finalScore - 15);
     if (chandraNote?.includes('weak')) finalScore = Math.max(0, finalScore - 10);
@@ -306,7 +320,26 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
 
     let tier: 'strict' | 'compromised' | 'rejected';
     let tierNote: string;
-    if (activityVarjya) {
+    // Guru/Shukra Mudha (combustion) as an ABSOLUTE block for Vivaha,
+    // Upanayanam, and (Apurva/first-entry) Griha Pravesh specifically —
+    // verified directly across multiple independent sources before
+    // implementing, not taken on a single AI-report's word: DrikPanchang
+    // states plainly "most auspicious works including marriage are
+    // prohibited when Shukra Tara and Guru Tara are set"; ShubhPanchang.com
+    // documents combustion as an outright removal filter (not a warning)
+    // for Griha Pravesh dates; onlinejyotish.com's Shukra Asta Finder lists
+    // exactly these three activities as "Prohibited," citing Muhurta
+    // Chintamani directly. myvaastu.in adds the nuance that this specifically
+    // applies to first entry into a NEW house, not re-entry into an
+    // existing/renovated one — matching how this app's 'grihaPravesh'
+    // activity is already scoped ("new house — first entry"). Other
+    // activities (vahanKharidi etc.) keep the softer compromise treatment,
+    // since the sourcing for those was weaker/less consistent.
+    const isMajorSamskara = ['vivah', 'upanayanam', 'grihaPravesh'].includes(p.activityKey);
+    if (isMajorSamskara && (shukraMudhaWarn || guruMudhaWarn)) {
+      tier = 'rejected';
+      tierNote = `Combustion active (${[shukraMudhaWarn ? 'Shukra Mudha' : null, guruMudhaWarn ? 'Guru Mudha' : null].filter(Boolean).join(' and ')}) — per Muhurta Chintamani, this is an absolute block for this activity, not a soft caution. No documented exception overrides it.`;
+    } else if (activityVarjya) {
       tier = 'rejected';
       tierNote = nakRule.reason;
     } else if (ayanaHardBlocked) {

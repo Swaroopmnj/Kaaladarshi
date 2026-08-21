@@ -105,15 +105,52 @@ export interface PanchakaExceptionRule {
 }
 export const PANCHAKA_EXCEPTIONS: PanchakaExceptionRule[] = [];
 
+/**
+ * Per-activity Panchaka tolerance — which of the five Panchaka Rahita
+ * types (Mrityu/Agni/Raja/Chora/Roga) are AVOIDED vs TOLERATED for a given
+ * activity. Source: Desabhatla (sreenivasdesabhatla.wordpress.com — already
+ * cross-validated elsewhere in this app), citing Muhurta Chintamani /
+ * Nirnaya Sindhu:
+ *   - vivah / upanayanam: avoid Roga + Mrityu; tolerate Agni/Raja/Chora.
+ *   - grihaPravesh: avoid Raja + Agni; tolerate Mrityu/Chora/Roga.
+ *   - shopOpening: avoid Raja only.
+ *   - travelStart / vahanKharidi: avoid Chora only.
+ * Activities with no documented tolerance table (everything else) default
+ * to "avoid all five" — the conservative default, not a fabricated
+ * exception. This previously existed as an EMPTY array with a stub
+ * function that always returned blocked:false regardless of what was
+ * passed in — a real bug, not a design choice. Fixed here.
+ */
+const PANCHAKA_TOLERANCE: Record<string, Set<Exclude<PanchakaType, null>>> = {
+  vivah: new Set(['Agni', 'Raja', 'Chora']),
+  upanayanam: new Set(['Agni', 'Raja', 'Chora']),
+  grihaPravesh: new Set(['Mrityu', 'Chora', 'Roga']),
+  shopOpening: new Set(['Mrityu', 'Agni', 'Chora', 'Roga']),
+  travelStart: new Set(['Mrityu', 'Agni', 'Raja', 'Roga']),
+  vahanKharidi: new Set(['Mrityu', 'Agni', 'Raja', 'Roga']),
+};
+
 export function getPanchakaVerdict(
-  _activity: string,
-  isNakshatraPanchakaActive: boolean,
-  _type: PanchakaType,
+  activity: string,
+  panchakaRahita: PanchakaRahitaResult | null,
+  legacyNakshatraPanchakaActive: boolean,
 ): { blocked: boolean; note: string } {
+  if (!panchakaRahita || panchakaRahita.rahita || !panchakaRahita.type) {
+    return {
+      blocked: false,
+      note: legacyNakshatraPanchakaActive
+        ? 'Nakshatra Panchaka is active (terminal 5 nakshatras). This is shown as a separate caution; Panchaka Rahita (the type that actually matters) is clear at this day\'s sunrise-based reference point.'
+        : 'Panchaka Rahita clear at this day\'s sunrise-based reference point (see the Full Report for the precise value at each specific time window).',
+    };
+  }
+  const tolerated = PANCHAKA_TOLERANCE[activity];
+  const isTolerated = tolerated ? tolerated.has(panchakaRahita.type) : false;
   return {
-    blocked: false,
-    note: isNakshatraPanchakaActive
-      ? 'Nakshatra Panchaka is active. This is shown as a separate caution; Mrityu/Agni/Raja/Chora/Roga Panchaka Rahita must be calculated from Tithi + Vara + Nakshatra + Udaya Lagna at the exact Muhurta.'
-      : 'Nakshatra Panchaka not active. Panchaka Rahita is checked separately at the elected time.',
+    blocked: !isTolerated,
+    note: isTolerated
+      ? `${panchakaRahita.type} Panchaka is active at sunrise, but is a documented tolerated exception for this activity (source: Muhurta Chintamani / Nirnaya Sindhu, via Desabhatla).`
+      : tolerated
+        ? `${panchakaRahita.type} Panchaka is active at sunrise and is NOT a documented exception for this activity — avoided.`
+        : `${panchakaRahita.type} Panchaka is active at sunrise. No documented tolerance table exists for this activity, so it defaults to avoided (conservative default, not a fabricated exception).`,
   };
 }

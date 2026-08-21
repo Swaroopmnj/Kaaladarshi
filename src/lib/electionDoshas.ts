@@ -58,7 +58,22 @@ export function evaluateElectionMahadoshas(chart: BirthChart, options: ElectionD
 
   const h2 = chart.planets.filter((p) => p.house === 2 && HARD_MALEFICS.has(p.planet));
   const h12 = chart.planets.filter((p) => p.house === 12 && HARD_MALEFICS.has(p.planet));
-  const karthari = h2.length > 0 && h12.length > 0;
+  const lagnaKarthari = h2.length > 0 && h12.length > 0;
+
+  // Chandra Papakarthari — the same scissor-affliction pattern, but counted
+  // from the transit MOON's rashi instead of the Lagna. Per Kalaprakasika,
+  // this is considered equally destructive to Lagna Papakarthari for
+  // Vivaha and Griha Pravesha in both North and South Indian tradition —
+  // previously only the Lagna version was checked here, a real gap.
+  const moonRashiIdx = moon?.rashi.index;
+  const h2FromMoon = moonRashiIdx !== undefined
+    ? chart.planets.filter((p) => p.rashi.index === (moonRashiIdx + 1) % 12 && HARD_MALEFICS.has(p.planet))
+    : [];
+  const h12FromMoon = moonRashiIdx !== undefined
+    ? chart.planets.filter((p) => p.rashi.index === (moonRashiIdx + 11) % 12 && HARD_MALEFICS.has(p.planet))
+    : [];
+  const chandraKarthari = moonRashiIdx !== undefined && h2FromMoon.length > 0 && h12FromMoon.length > 0;
+  const karthari = lagnaKarthari || chandraKarthari;
 
   const moonBadHouse = !!moon && [6, 8, 12].includes(moon.house);
   const moonConj = moon
@@ -69,8 +84,11 @@ export function evaluateElectionMahadoshas(chart: BirthChart, options: ElectionD
     {
       n: 3, name: 'Karthari Dosha', state: karthari ? 'present' : 'clear', severity: 'major',
       detail: karthari
-        ? `Lagna is hemmed by hard natural malefics: 12th house (${h12.map(p => p.planet).join(', ')}) and 2nd house (${h2.map(p => p.planet).join(', ')}).`
-        : 'No hard natural malefic is simultaneously present in both the 12th and 2nd houses from Lagna.',
+        ? [
+            lagnaKarthari ? `Lagna hemmed by hard malefics: 12th house (${h12.map(p => p.planet).join(', ')}) and 2nd house (${h2.map(p => p.planet).join(', ')}).` : null,
+            chandraKarthari ? `Chandra (transit Moon) hemmed by hard malefics: 12th-from-Moon (${h12FromMoon.map(p => p.planet).join(', ')}) and 2nd-from-Moon (${h2FromMoon.map(p => p.planet).join(', ')}) — per Kalaprakasika, equally destructive to the Lagna version for Vivaha/Griha Pravesha.` : null,
+          ].filter(Boolean).join(' ')
+        : 'Neither the Lagna nor the transit Moon is hemmed by hard natural malefics in the houses/signs on either side.',
     },
     {
       n: 4, name: 'Shashtashta Riphagatha Chandra', state: moonBadHouse ? 'present' : 'clear', severity: 'major',
