@@ -10,7 +10,7 @@ import {
 } from 'panchang-ts';
 import { NAKSHATRAS, RASHIS, PANCHAKA_ACTIVITY_KEY, type CityPreset } from './constants';
 import { CUSTOM_ACTIVITY_RULES } from './customActivities';
-import { getPanchakaVerdict, calculatePanchakaRahita, extractTithiNumber, varaNumberFromName } from './panchaka';
+import { getPanchakaVerdict, calculatePanchakaRahita, extractTithiNumber, varaNumberFromName, type PanchakaRahitaResult } from './panchaka';
 import {
   getAyana,
   DAKSHINAYANA_WARN,
@@ -41,6 +41,7 @@ export function describeTara(tara: { name: string; englishName: string; quality:
   return `${tara.name} Tara — ${tara.quality}`;
 }
 import { isChakraShuddhi } from './chakraShuddhi';
+import { getLagnaWindows, activeLimbAt } from './timewindows';
 import { getBhadraDayVerdict } from './bhadra';
 import { localDateAtMidnight, toRealInstant } from './dateUtils';
 import { activityNakshatraRule } from './activityRules';
@@ -115,20 +116,35 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
     const panchang = d.panchang;
     const nakshatraName = panchang.nakshatras[0]?.name ?? '';
     const panchakaKey = PANCHAKA_ACTIVITY_KEY[p.activityKey] ?? p.activityKey;
-    // Day-level Panchaka Rahita, computed from the sunrise-based reference
-    // point (same approximation pattern used elsewhere for day-level
-    // checks in this app — e.g. Tarabala). The precise per-window value at
-    // each specific candidate time is still shown separately in the Full
-    // Report; this is what actually drives the day-level score/tier now,
-    // closing a real gap where Panchaka Rahita was calculated but never
-    // affected which days scored well.
-    const tithiNum = extractTithiNumber(panchang.tithis[0]);
+    // Day-level Panchaka Rahita, checked across EVERY Lagna window in the
+    // day, not just the sunrise moment. Panchaka Rahita depends on Lagna,
+    // which changes roughly every 2 hours — a single sunrise snapshot
+    // cannot validly represent a whole day, the same class of mistake
+    // already fixed elsewhere in this app for Tarabala's day-transition
+    // handling. A day is only treated as Panchaka-blocked if EVERY window
+    // in it has an intolerable type; if even one window is Rahita or a
+    // documented tolerated exception, the day itself isn't rejected for
+    // this — the Full Report still shows the precise per-window value so
+    // a bad early-morning moment doesn't get silently hidden either.
+    const location = { latitude: p.city.latitude, longitude: p.city.longitude };
+    const dayLagnaWindows = getLagnaWindows(panchang, location, p.city.timezone);
     const varaNum = varaNumberFromName(panchang.vara.englishName);
-    const nakNum = NAKSHATRAS.findIndex((n) => nakshatraName.toLowerCase().startsWith(n.toLowerCase().slice(0, 6))) + 1;
-    const sunriseLagna = computeLagna(toRealInstant(panchang.sunrise, p.city.timezone), { latitude: p.city.latitude, longitude: p.city.longitude }, 'lahiri');
-    const lagnaNum = (sunriseLagna.rashi.index ?? 0) + 1;
-    const panchakaRahita = tithiNum && varaNum && nakNum > 0 ? calculatePanchakaRahita(tithiNum, varaNum, nakNum, lagnaNum) : null;
-    const verdict = getPanchakaVerdict(panchakaKey, panchakaRahita, panchang.panchaka);
+    let bestPanchakaRahita: PanchakaRahitaResult | null = null;
+    let bestVerdict: { blocked: boolean; note: string } | null = null;
+    for (const w of dayLagnaWindows) {
+      const activeTithi = activeLimbAt(panchang.tithis, w.start);
+      const activeNak = activeLimbAt(panchang.nakshatras, w.start);
+      const tithiNum = extractTithiNumber(activeTithi);
+      const nakNum = NAKSHATRAS.findIndex((n) => activeNak.name.toLowerCase().startsWith(n.toLowerCase().slice(0, 6))) + 1;
+      const windowLagna = computeLagna(toRealInstant(w.start, p.city.timezone), location, 'lahiri');
+      const lagnaNum = (windowLagna.rashi.index ?? 0) + 1;
+      if (!tithiNum || !varaNum || nakNum <= 0) continue;
+      const pr = calculatePanchakaRahita(tithiNum, varaNum, nakNum, lagnaNum);
+      const v = getPanchakaVerdict(panchakaKey, pr, panchang.panchaka);
+      if (!v.blocked) { bestPanchakaRahita = pr; bestVerdict = v; break; } // found a survivable window — done
+      if (!bestPanchakaRahita) { bestPanchakaRahita = pr; bestVerdict = v; } // keep the first as a fallback representative
+    }
+    const verdict = bestVerdict ?? getPanchakaVerdict(panchakaKey, null, panchang.panchaka);
     const bhadraVerdict = getBhadraDayVerdict(panchang);
     const nakRule = activityNakshatraRule(p.activityKey, nakshatraName);
 

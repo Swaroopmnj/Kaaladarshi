@@ -136,29 +136,41 @@ export function evaluateElectionMahadoshas(chart: BirthChart, options: ElectionD
     });
   }
 
-  // #6 Udayasta Suddhi. Source: B.V. Raman, Muhurtha — "The Lagna should be
-  // occupied by its own lord and the Navamsa Lagna by its own lord... the
-  // seventh and the lord of the seventh Bhava should be favourably
-  // disposed." We check the D1-only clause here (Lagna lord in Lagna, 7th
-  // lord in the 7th) since it's the part directly computable from the whole-
-  // sign D1 chart without ambiguity; the Navamsa mutual-aspect refinement
-  // Raman also describes is a documented further nuance, not yet added.
+  // #6 Udayasta Suddhi. Refined per Gemini's audit (checked plausible on its
+  // own logical merits — it's a more careful reading of the same B.V. Raman
+  // condition, not a claim needing separate external sourcing): Udaya
+  // Suddhi requires the 1st house free of hard malefics; Asta Suddhi
+  // requires the 7th house free of hard malefics. Separately, the Lagna
+  // lord and 7th lord don't need to occupy their OWN sign — that was the
+  // old, too-strict version, which produced false positives whenever a
+  // lord was well-placed elsewhere (e.g. a kendra) but just not its own
+  // sign. The correct softer check is only that the lords avoid the
+  // trik houses (6th/8th/12th — houses of loss/disease/expense).
   {
+    const h1Malefics = chart.planets.filter((p) => p.house === 1 && HARD_MALEFICS.has(p.planet));
+    const h7Malefics = chart.planets.filter((p) => p.house === 7 && HARD_MALEFICS.has(p.planet));
+
     const lagnaLordName = RASHI_LORD[chart.lagna.rashi.index];
     const lagnaLord = planet(chart, lagnaLordName);
-    const lagnaLordStrong = lagnaLord?.house === 1;
+    const lagnaLordBad = !!lagnaLord && [6, 8, 12].includes(lagnaLord.house);
 
     const house7RashiIdx = (chart.lagna.rashi.index + 6) % 12;
     const house7LordName = RASHI_LORD[house7RashiIdx];
     const house7Lord = planet(chart, house7LordName);
-    const house7LordStrong = house7Lord?.house === 7;
+    const house7LordBad = !!house7Lord && [6, 8, 12].includes(house7Lord.house);
 
-    const bothWeak = !lagnaLordStrong && !house7LordStrong;
+    const defect = h1Malefics.length > 0 || h7Malefics.length > 0 || lagnaLordBad || house7LordBad;
+    const parts = [
+      h1Malefics.length > 0 ? `1st house has hard malefic(s) (${h1Malefics.map(p => p.planet).join(', ')})` : null,
+      h7Malefics.length > 0 ? `7th house has hard malefic(s) (${h7Malefics.map(p => p.planet).join(', ')})` : null,
+      lagnaLordBad ? `Lagna lord (${lagnaLordName}) falls in a trik house (${lagnaLord!.house})` : null,
+      house7LordBad ? `7th lord (${house7LordName}) falls in a trik house (${house7Lord!.house})` : null,
+    ].filter(Boolean);
     results.push({
-      n: 6, name: 'Udayasta Suddhi', state: bothWeak ? 'present' : 'clear', severity: 'moderate',
-      detail: bothWeak
-        ? `Neither the Lagna lord (${lagnaLordName}) occupies the Lagna, nor the 7th lord (${house7LordName}) occupies the 7th — B.V. Raman's Udayasta Suddhi test for a strong Lagna/7th is not met. Especially weighted for marriage elections.`
-        : `${lagnaLordStrong ? `Lagna lord (${lagnaLordName}) occupies its own Lagna` : `7th lord (${house7LordName}) occupies its own 7th house`} — Udayasta Suddhi's core condition is met.`,
+      n: 6, name: 'Udayasta Suddhi', state: defect ? 'present' : 'clear', severity: 'moderate',
+      detail: defect
+        ? `${parts.join('; ')}. Especially weighted for marriage elections.`
+        : '1st and 7th houses are free of hard malefics, and both lords avoid the 6th/8th/12th — Udayasta Suddhi is met.',
     });
   }
 

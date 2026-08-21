@@ -25,7 +25,7 @@ import { ACTIVITIES, NAKSHATRAS, RASHIS, PANCHAKA_ACTIVITY_KEY, DEFAULT_CITY_IND
 import { panchakaTypeFromNakshatra, getPanchakaVerdict, calculatePanchakaRahita, extractTithiNumber, varaNumberFromName } from './lib/panchaka';
 import { MAHADOSHAS } from './lib/mahadoshas';
 import { evaluateElectionMahadoshas, RASHI_LORD } from './lib/electionDoshas';
-import { getGoodTimeWindows, type NamedWindow } from './lib/timewindows';
+import { getGoodTimeWindows, getLagnaWindows, activeLimbAt, type NamedWindow } from './lib/timewindows';
 import {
   getAyana,
   DAKSHINAYANA_WARN,
@@ -116,13 +116,8 @@ function tierLabelShort(tier: 'strict' | 'compromised' | 'rejected'): string {
 // time window late in the day may actually fall under the SECOND one after
 // a transition. This picks whichever element's range actually contains the
 // given moment, so per-window detail is accurate rather than inherited
-// from the day's first-listed value.
-function activeLimbAt<T extends { name: string; endTime: Date | null }>(items: T[], moment: Date): T {
-  for (const item of items) {
-    if (!item.endTime || moment.getTime() < item.endTime.getTime()) return item;
-  }
-  return items[items.length - 1];
-}
+// from the day's first-listed value. (Shared helper, imported from
+// timewindows.ts — see activeLimbAt there.)
 
 // Derives nakshatra + pada from a sidereal longitude (27 nakshatras of
 // 13°20' each, 4 padas of 3°20' each) — used for the Kundali planetary
@@ -474,9 +469,20 @@ export default function App() {
       );
       const nakshatraName = panchang.nakshatras[0]?.name ?? '';
       const panchakaKey = PANCHAKA_ACTIVITY_KEY[a.key] ?? a.key;
-      const sunriseLagna = computeLagna(toRealInstant(panchang.sunrise, pCity.timezone), { latitude: pCity.latitude, longitude: pCity.longitude }, 'lahiri');
-      const panchakaRahita = panchakaRahitaAtWindow(panchang.tithis[0], panchang.vara.englishName, nakshatraName, sunriseLagna.rashi.index ?? 0);
-      const verdict = getPanchakaVerdict(panchakaKey, panchakaRahita, panchang.panchaka);
+      // Checked across every Lagna window today, not just sunrise — see the
+      // fuller explanation in search.ts's day-level Panchaka Rahita logic.
+      const dayLagnaWindows = getLagnaWindows(panchang, { latitude: pCity.latitude, longitude: pCity.longitude }, pCity.timezone);
+      let panchakaRahita: ReturnType<typeof panchakaRahitaAtWindow> = null;
+      let verdict = getPanchakaVerdict(panchakaKey, null, panchang.panchaka);
+      for (const w of dayLagnaWindows) {
+        const activeTithi = activeLimbAt(panchang.tithis, w.start);
+        const activeNak = activeLimbAt(panchang.nakshatras, w.start);
+        const windowLagna = computeLagna(toRealInstant(w.start, pCity.timezone), { latitude: pCity.latitude, longitude: pCity.longitude }, 'lahiri');
+        const pr = panchakaRahitaAtWindow(activeTithi, panchang.vara.englishName, activeNak.name, windowLagna.rashi.index ?? 0);
+        const v = getPanchakaVerdict(panchakaKey, pr, panchang.panchaka);
+        if (!v.blocked) { panchakaRahita = pr; verdict = v; break; }
+        if (!panchakaRahita) { panchakaRahita = pr; verdict = v; }
+      }
       const bhadraVerdict = getBhadraDayVerdict(panchang);
       const inKartikaException = a.key === 'grihaPravesh' && KARTIKA_DAKSHINAYANA_EXCEPTION.has(a.key) && panchang.chandramasa.name === 'Kartika';
       const ayanaHardBlocked = dayContext.ayana === 'Dakshinayana' && DAKSHINAYANA_HARD_BLOCK.has(a.key);

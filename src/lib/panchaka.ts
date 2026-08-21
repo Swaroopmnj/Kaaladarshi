@@ -139,8 +139,8 @@ export function getPanchakaVerdict(
     return {
       blocked: false,
       note: legacyNakshatraPanchakaActive
-        ? 'Nakshatra Panchaka is active (terminal 5 nakshatras). This is shown as a separate caution; Panchaka Rahita (the type that actually matters) is clear at this day\'s sunrise-based reference point.'
-        : 'Panchaka Rahita clear at this day\'s sunrise-based reference point (see the Full Report for the precise value at each specific time window).',
+        ? 'Nakshatra Panchaka is active (terminal 5 nakshatras) at some point today. This is shown as a separate caution; Panchaka Rahita (the type that actually matters) has at least one clean/tolerated Lagna window today — checked across the whole day, not just sunrise.'
+        : 'Panchaka Rahita is clear, or has at least one tolerated Lagna window today (checked across the whole day, not just sunrise — see the Full Report for the precise value at each specific time window).',
     };
   }
   const tolerated = PANCHAKA_TOLERANCE[activity];
@@ -148,9 +148,9 @@ export function getPanchakaVerdict(
   return {
     blocked: !isTolerated,
     note: isTolerated
-      ? `${panchakaRahita.type} Panchaka is active at sunrise, but is a documented tolerated exception for this activity (source: Muhurta Chintamani / Nirnaya Sindhu, via Desabhatla).`
+      ? `${panchakaRahita.type} Panchaka is active in at least part of the day, but is a documented tolerated exception for this activity (source: Muhurta Chintamani / Nirnaya Sindhu, via Desabhatla).`
       : tolerated
-        ? `${panchakaRahita.type} Panchaka is active at sunrise and is NOT a documented exception for this activity — avoided.`
-        : `${panchakaRahita.type} Panchaka is active at sunrise. No documented tolerance table exists for this activity, so it defaults to avoided (conservative default, not a fabricated exception).`,
+        ? `${panchakaRahita.type} Panchaka is active across every Lagna window today and is NOT a documented exception for this activity — the whole day is avoided, not just a single moment.`
+        : `${panchakaRahita.type} Panchaka is active across every Lagna window today. No documented tolerance table exists for this activity, so it defaults to avoided (conservative default, not a fabricated exception).`,
   };
 }

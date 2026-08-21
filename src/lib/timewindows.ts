@@ -13,6 +13,14 @@ export interface NamedWindow {
 interface Period { start: Date; end: Date; label: string }
 export interface WindowLocation { latitude: number; longitude: number }
 
+/** Which day-limb (tithi/nakshatra/yoga/karana) is actually active at a given moment. */
+export function activeLimbAt<T extends { name: string; endTime: Date | null }>(items: T[], moment: Date): T {
+  for (const item of items) {
+    if (!item.endTime || moment.getTime() < item.endTime.getTime()) return item;
+  }
+  return items[items.length - 1];
+}
+
 function subtractPeriod(parts: NamedWindow[], bad: Period): NamedWindow[] {
   const out: NamedWindow[] = [];
   for (const part of parts) {
