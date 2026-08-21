@@ -197,12 +197,18 @@ export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
     // Vrishabha Chakra Shuddhi is specifically for Bhoomi Puja / Griharambha
     // (foundation-laying/starting construction) — ensures structural
     // stability. These are two DIFFERENT chakras for two DIFFERENT
-    // activities, not one shared value — verified directly against
-    // onlinejyotish.com's Muhurta Helper page, which states this exact
-    // activity split under "Understanding the 3 Chakras", cross-checked
-    // against the classical text it cites (Muhurta Chintamani). Previously
-    // both were incorrectly set to the same value and only checked for
-    // Griha Pravesh, meaning Bhoomi Puja never got its correct check at all.
+    // activities, not one shared value.
+    //
+    // Sourcing (rechecked on request): TWO independent sources give this
+    // clean split explicitly — onlinejyotish.com's Muhurta Helper page, and
+    // separately sreenivasdesabhatla's Gruhapravesam page (a source already
+    // cross-validated elsewhere in this app) states it almost word-for-word:
+    // "Kalasa chakra suddhi for Gruha Pravesam and Vrishabha chakra suddhi
+    // for Gruha Arambham." ONE weaker, less detailed source (a 2018 blog
+    // post) lists both chakras together under a general Griha Pravesham
+    // checklist, suggesting possible overlap. Kept the clean split as the
+    // primary rule given the stronger 2-vs-1 sourcing, but this isn't
+    // unanimous — noted here rather than silently picking a side.
     if (p.activityKey === 'grihaPravesh' || p.activityKey === 'bhoomiPuja') {
       const dayNakIdx = NAKSHATRAS.findIndex((n) => nakshatraName.toLowerCase().startsWith(n.toLowerCase().slice(0, 6)));
       if (dayNakIdx >= 0) {
