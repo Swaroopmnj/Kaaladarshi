@@ -76,8 +76,22 @@ export function evaluateElectionMahadoshas(chart: BirthChart, options: ElectionD
   const karthari = lagnaKarthari || chandraKarthari;
 
   const moonBadHouse = !!moon && [6, 8, 12].includes(moon.house);
-  const moonConj = moon
+  // Sagraha Chandra refined: same-RASHI presence isn't necessarily a real
+  // conjunction — two planets can be 25° apart and technically share a
+  // sign without being conjunct in any meaningful sense. Distinguish a
+  // tight conjunction (within an 8° orb, a commonly used general
+  // planetary-conjunction orb) from a loose same-rashi co-presence, and
+  // only treat the tight case as the full dosha.
+  const CONJUNCTION_ORB_DEGREES = 8;
+  function angularSeparation(a: number, b: number): number {
+    const diff = Math.abs(a - b) % 360;
+    return diff > 180 ? 360 - diff : diff;
+  }
+  const moonSameRashi = moon
     ? chart.planets.filter((p) => p.planet !== 'Moon' && p.rashi.index === moon.rashi.index)
+    : [];
+  const moonTightConj = moon
+    ? moonSameRashi.filter((p) => angularSeparation(p.longitude, moon.longitude) <= CONJUNCTION_ORB_DEGREES)
     : [];
 
   const results: ElectionDoshaCheck[] = [
@@ -95,11 +109,13 @@ export function evaluateElectionMahadoshas(chart: BirthChart, options: ElectionD
       detail: moon ? `Moon is in house ${moon.house} from the election Lagna${moonBadHouse ? ' (6/8/12 defect detected)' : ''}.` : 'Moon position unavailable.',
     },
     {
-      n: 5, name: 'Sagraha Chandra', state: moonConj.length ? 'present' : 'clear',
+      n: 5, name: 'Sagraha Chandra', state: moonTightConj.length ? 'present' : 'clear',
       severity: options.activityKey === 'vivah' ? 'major' : 'moderate',
-      detail: moonConj.length
-        ? `Moon shares ${moon?.rashi.name} with ${moonConj.map(p => p.planet).join(', ')}. B.V. Raman: "specially applicable in case of marriage" — treated as major here for Vivāha, moderate for other activities. Exact angular/orb interpretation can be exposed as a tradition setting later.`
-        : 'Moon does not share its Rashi with another graha.',
+      detail: moonTightConj.length
+        ? `Moon is within ${CONJUNCTION_ORB_DEGREES}° of ${moonTightConj.map(p => `${p.planet} (${angularSeparation(p.longitude, moon!.longitude).toFixed(1)}°)`).join(', ')} — a true tight conjunction, not just same-rashi presence. B.V. Raman: "specially applicable in case of marriage" — treated as major here for Vivāha, moderate for other activities.`
+        : moonSameRashi.length
+          ? `Moon shares ${moon?.rashi.name} with ${moonSameRashi.map(p => `${p.planet} (${angularSeparation(p.longitude, moon!.longitude).toFixed(1)}° away)`).join(', ')}, but none are within the ${CONJUNCTION_ORB_DEGREES}° conjunction orb — not treated as a real Sagraha Chandra defect, just noted for transparency.`
+          : 'Moon does not share its Rashi with another graha.',
     },
     {
       n: 10, name: 'Bhrigu Shatka', state: venus?.house === 6 ? 'present' : 'clear',

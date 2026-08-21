@@ -501,10 +501,21 @@ export default function App() {
         }
       }
       const lagnaWindows = getGoodTimeWindows(panchang, { latitude: pCity.latitude, longitude: pCity.longitude }, pCity.timezone);
+      const shukraMudhaWarn = dayContext.mudha.shukraMudha && SHUKRA_MUDHA_SENSITIVE.has(a.key);
+      const guruMudhaWarn = dayContext.mudha.guruMudha && GURU_MUDHA_SENSITIVE.has(a.key);
+      // Combustion is an ABSOLUTE block for these three specifically (see
+      // the sourced note in search.ts) — the checkmark must reflect that.
+      const combustionHardBlocked = ['vivah', 'upanayanam', 'grihaPravesh'].includes(a.key) && (shukraMudhaWarn || guruMudhaWarn);
+      const chakraImpure = kalasaChakraShuddhi === false || vrishabhaChakraShuddhi === false;
       return {
         key: a.key,
         label: a.label,
-        available: score.passes && !verdict.blocked && !ayanaHardBlocked && lagnaWindows.length > 0,
+        // Previously this ignored Chakra Shuddhi impurity and the
+        // combustion hard-block entirely, so it could show green/available
+        // while its own detail list right below showed red "avoid" items —
+        // a real, confirmed bug. The checkmark can no longer disagree with
+        // its own details now.
+        available: score.passes && !verdict.blocked && !ayanaHardBlocked && !combustionHardBlocked && !chakraImpure && lagnaWindows.length > 0,
         score,
         panchakaBlocked: verdict.blocked,
         panchakaNote: verdict.note,
@@ -515,8 +526,8 @@ export default function App() {
           : chaturmasaWarn
             ? 'Falls within Chaturmās — traditionally paused, but treated as a warning here since regional practice varies (some traditions permit it; "consult your family pandit" per most sources).'
             : dWarn?.note,
-        shukraMudhaWarn: dayContext.mudha.shukraMudha && SHUKRA_MUDHA_SENSITIVE.has(a.key),
-        guruMudhaWarn: dayContext.mudha.guruMudha && GURU_MUDHA_SENSITIVE.has(a.key),
+        shukraMudhaWarn,
+        guruMudhaWarn,
         windows: lagnaWindows,
         kalasaChakraShuddhi,
         vrishabhaChakraShuddhi,
@@ -629,6 +640,7 @@ export default function App() {
   return (
     <div className="page">
       <header>
+        <img src="/brand/kaladarshi-logo.png" alt="Kāladarśī" className="brand-logo" width="96" height="96" />
         <h1>Kāladarśī</h1>
         <p className="tagline">
           Panchāṅga-based auspicious timing, checked against Panchaka, the Ekaviṃśati Mahādoṣas,
