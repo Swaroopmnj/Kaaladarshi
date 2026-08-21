@@ -40,6 +40,7 @@ import { isChakraShuddhi } from './lib/chakraShuddhi';
 import { getBhadraDayVerdict } from './lib/bhadra';
 import { SOUTH_INDIAN_GRID, planetAbbr, RASHI_DEVANAGARI } from './lib/southIndianChart';
 import { runMuhurtaSearch, describeTara, type EnrichedDay } from './lib/search';
+import { PURCHASE_KIND_LABELS, type PurchaseKind } from './lib/customActivities';
 import { localDateAtMidnight, localDateTime, toRealInstant, DISPLAY_TZ, REAL_TZ, isNextCalendarDay } from './lib/dateUtils';
 import { searchIndiaPlaces, reverseGeocodeIndia, getBrowserLocation, type IndiaPlaceResult } from './lib/locationSearch';
 import { findNamaCandidates, NAMA_PADA_TABLE, type NamaPada } from './lib/namaNakshatra';
@@ -166,10 +167,19 @@ function nakshatraLordFromLongitude(longitude: number): string {
 // exactly what the existing Griha Pravesh activity already covers.
 function purchaseStageGuidance(activityKey: string): string | null {
   if (activityKey === 'vahanKharidi') {
-    return 'For vehicles, apply this muhurat to the DELIVERY date (when you actually take possession and drive it), not the booking/payment date. Registration is secondary — align it with a good weekday if convenient, but it doesn\'t need its own muhurat.';
+    return 'This activity is for the DELIVERY date specifically (when you actually take possession and drive it) — the most critical of a vehicle purchase\'s stages per most sources. For the advance/token payment or the sale agreement, use the dedicated "Advance / Token Payment" or "Agreement Signing" activities instead — those apply the same way regardless of what you\'re buying.';
+  }
+  if (activityKey === 'homeBuying') {
+    return 'This activity is specifically for REGISTRATION / sale-deed signing — the single most critical moment for a property purchase (ownership legally transfers here). For the advance/token payment or agreement signing, use the dedicated "Advance / Token Payment" or "Agreement Signing" activities — same Panchāṅga criteria apply whether it\'s a car, a home, or land.';
+  }
+  if (activityKey === 'advancePayment') {
+    return 'Consistently the LEAST critical of a purchase\'s stages, wherever this is discussed in the sources — a good date here is nice to have, not essential. If you can only get one stage right, prioritise Registration (for property) or Delivery (for a vehicle) instead.';
   }
   if (activityKey === 'grihaPravesh') {
-    return 'This activity is for the MOVE-IN/possession moment specifically. For the property REGISTRATION or sale-deed signing (the moment ownership legally transfers) — the more critical moment per most sources — check general Panchāṅga Śuddhi separately (avoid 4th/9th/14th tithi, Amāvasyā, Rāhu Kālam, Bhadrā; Thursday/Friday are favoured). The token/advance payment is the least critical of the three and can usually be flexible.';
+    return 'This is for FIRST entry into a newly built or newly bought house — the full consecration ritual. If you\'re moving into a RENTED house, or relocating between two houses you already own where Griha Praveśa has already been performed on both, use "House Shifting" instead — it\'s treated as a lighter-weight event with different criteria, not a repeat of this ceremony.';
+  }
+  if (activityKey === 'houseShifting') {
+    return 'For a rented house, or moving between owned houses where Griha Praveśa is already done on both. If this is your FIRST entry into a newly built/bought house, use "Griha Pravesh" instead — that\'s the full consecration ritual with its own, stricter criteria.';
   }
   return null;
 }
@@ -309,6 +319,8 @@ export default function App() {
   const [groomRashiIdx, setGroomRashiIdx] = useState(0);
   const [manualStarMode, setManualStarMode] = useState(false);
   const [knowledgeMode, setKnowledgeMode] = useState<'birth' | 'star' | 'name' | null>(null);
+  const [purchaseKind, setPurchaseKind] = useState<PurchaseKind>('property');
+  const [vivahStage, setVivahStage] = useState<'wedding' | 'preWedding'>('wedding');
   const [namaQuery, setNamaQuery] = useState('');
   const [namaSelected, setNamaSelected] = useState<NamaPada | null>(null);
   const namaCandidates = useMemo(() => findNamaCandidates(namaQuery), [namaQuery]);
@@ -603,10 +615,7 @@ export default function App() {
       <nav className="tabs">
         <button className={tab === 'panchang' ? 'active' : ''} onClick={() => setTab('panchang')}>Today's Panchāṅga</button>
         <button className={tab === 'finder' ? 'active' : ''} onClick={() => setTab('finder')}>Muhurat Finder</button>
-        <button className={tab === 'personal' && isVivah ? 'active' : ''} onClick={() => { setTab('personal'); setActivityKey('vivah'); setKnowledgeMode(null); }}>💑 Vivāha Muhūrat</button>
-        <button className={tab === 'personal' && activityKey === 'grihaPravesh' ? 'active' : ''} onClick={() => { setTab('personal'); setActivityKey('grihaPravesh'); setKnowledgeMode(null); }}>🏠 Griha Pravesh Muhūrat</button>
-        <button className={tab === 'personal' && isUpanayanam ? 'active' : ''} onClick={() => { setTab('personal'); setActivityKey('upanayanam'); setKnowledgeMode(null); }}>🕉️ Upanayanam Muhūrat</button>
-        <button className={tab === 'personal' && !isVivah && !isUpanayanam && activityKey !== 'grihaPravesh' ? 'active' : ''} onClick={() => { setTab('personal'); setKnowledgeMode(null); }}>Personalised Muhurat (other)</button>
+        <button className={tab === 'personal' ? 'active' : ''} onClick={() => setTab('personal')}>Personalised Muhurat</button>
         <button className={tab === 'kundali' ? 'active' : ''} onClick={() => setTab('kundali')}>Kundali</button>
       </nav>
 
@@ -823,12 +832,23 @@ export default function App() {
       <section className="panel form-panel">
         <div className="field">
           <label>Activity (Muhūrta)</label>
-          <select value={activityKey} onChange={(e) => setActivityKey(e.target.value)}>
-            {ACTIVITIES.map((a) => (
+          <select value={activityKey === 'vivah' ? 'grihaPravesh' : activityKey} onChange={(e) => setActivityKey(e.target.value)}>
+            {ACTIVITIES.filter((a) => a.key !== 'vivah').map((a) => (
               <option key={a.key} value={a.key}>{a.label}</option>
             ))}
           </select>
+          <p className="hint">Marriage isn't offered as a blind search — it needs at least Nakṣatra/Rāśi to be meaningful, so it lives in Personalised Muhurat only.</p>
           {purchaseStageGuidance(activityKey) && <p className="hint">📌 {purchaseStageGuidance(activityKey)}</p>}
+          {(activityKey === 'advancePayment' || activityKey === 'agreementSigning') && (
+            <>
+              <label style={{ marginTop: '0.6rem', display: 'block' }}>What's this for? (for your own notes — the muhurat criteria are the same either way)</label>
+              <div className="sub-tabs">
+                {(Object.keys(PURCHASE_KIND_LABELS) as PurchaseKind[]).map((k) => (
+                  <button type="button" key={k} className={purchaseKind === k ? 'active' : ''} onClick={() => setPurchaseKind(k)}>{PURCHASE_KIND_LABELS[k]}</button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="field-row">
@@ -977,6 +997,26 @@ export default function App() {
 
       {tab === 'personal' && (
         <>
+        <div className="sub-tabs">
+          <button type="button" className={isVivah ? 'active' : ''} onClick={() => { setActivityKey('vivah'); setKnowledgeMode(null); }}>💑 Vivāha</button>
+          <button type="button" className={activityKey === 'grihaPravesh' ? 'active' : ''} onClick={() => { setActivityKey('grihaPravesh'); setKnowledgeMode(null); }}>🏠 Griha Pravesh</button>
+          <button type="button" className={isUpanayanam ? 'active' : ''} onClick={() => { setActivityKey('upanayanam'); setKnowledgeMode(null); }}>🕉️ Upanayanam</button>
+          <button type="button" className={!isVivah && !isUpanayanam && activityKey !== 'grihaPravesh' ? 'active' : ''} onClick={() => setKnowledgeMode(null)}>Other activity</button>
+        </div>
+        {isVivah && (
+          <div className="sub-tabs">
+            <button type="button" className={vivahStage === 'preWedding' ? 'active' : ''} onClick={() => setVivahStage('preWedding')}>Pre-wedding ceremonies</button>
+            <button type="button" className={vivahStage === 'wedding' ? 'active' : ''} onClick={() => setVivahStage('wedding')}>Wedding</button>
+          </div>
+        )}
+        {isVivah && vivahStage === 'preWedding' && (
+          <p className="hint" style={{ marginBottom: '1rem' }}>
+            📌 Engagement, Pelli Kūturu, and other pre-wedding rituals — using the same base Panchāṅga
+            criteria as the wedding day itself for now, since no separately-sourced rule set for
+            pre-wedding ceremonies specifically was found yet. Treat this as a reasonable approximation,
+            not a distinctly verified rule.
+          </p>
+        )}
         <section className="panel form-panel">
           <p className="sub-label">Step 1 — Activity &amp; location</p>
           <div className="field">
@@ -988,6 +1028,16 @@ export default function App() {
             </select>
             {isVivah && knowledgeMode !== 'star' && <p className="hint">Marriage needs both partners' Nakṣatra/Rāśi — pick "I know my Nakṣatra &amp; Rāśi" below to unlock it (birth-detail mode is single-person only for now).</p>}
             {purchaseStageGuidance(activityKey) && <p className="hint">📌 {purchaseStageGuidance(activityKey)}</p>}
+            {(activityKey === 'advancePayment' || activityKey === 'agreementSigning') && (
+              <>
+                <label style={{ marginTop: '0.6rem', display: 'block' }}>What's this for? (for your own notes — the muhurat criteria are the same either way)</label>
+                <div className="sub-tabs">
+                  {(Object.keys(PURCHASE_KIND_LABELS) as PurchaseKind[]).map((k) => (
+                    <button type="button" key={k} className={purchaseKind === k ? 'active' : ''} onClick={() => setPurchaseKind(k)}>{PURCHASE_KIND_LABELS[k]}</button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
           <div className="field-row">
             <div className="field">

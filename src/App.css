@@ -344,3 +344,11 @@ button.secondary:hover { background: #fdf2df; }
 
 .activity-dedicated-header { margin-bottom: 0.8rem; padding-bottom: 0.6rem; border-bottom: 2px solid var(--accent); }
 .activity-dedicated-header h3 { margin: 0 0 0.2rem; color: var(--accent-dark); font-size: 1.15rem; }
+
+.sub-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.sub-tabs button {
+  background: transparent; border: 1px solid var(--border); padding: 0.4rem 0.8rem;
+  border-radius: 999px; cursor: pointer; font-family: inherit; color: var(--muted);
+  font-size: 0.82rem; font-weight: 600;
+}
+.sub-tabs button.active { background: #fdf2df; color: var(--accent-dark); border-color: var(--accent); }

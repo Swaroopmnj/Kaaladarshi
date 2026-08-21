@@ -8,6 +8,7 @@ import {
   type MuhurtaRule,
 } from 'panchang-ts';
 import { NAKSHATRAS, RASHIS, PANCHAKA_ACTIVITY_KEY, type CityPreset } from './constants';
+import { CUSTOM_ACTIVITY_RULES } from './customActivities';
 import { panchakaTypeFromNakshatra, getPanchakaVerdict } from './panchaka';
 import {
   getAyana,
@@ -98,7 +99,8 @@ export interface SearchParams {
 }
 
 export function runMuhurtaSearch(p: SearchParams): EnrichedDay[] {
-  const rule: MuhurtaRule = { ...STOCK_MUHURTA_RULES[p.activityKey], excludePanchaka: false, excludeBhadra: false };
+  const baseRule = CUSTOM_ACTIVITY_RULES[p.activityKey] ?? STOCK_MUHURTA_RULES[p.activityKey];
+  const rule: MuhurtaRule = { ...baseRule, excludePanchaka: false, excludeBhadra: false };
   const location = { latitude: p.city.latitude, longitude: p.city.longitude };
   const days = findAuspiciousDates(
     rule,
