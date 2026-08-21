@@ -26,6 +26,7 @@ import { panchakaTypeFromNakshatra, getPanchakaVerdict, calculatePanchakaRahita,
 import { MAHADOSHAS } from './lib/mahadoshas';
 import { evaluateElectionMahadoshas, RASHI_LORD } from './lib/electionDoshas';
 import { getGoodTimeWindows, getLagnaWindows, activeLimbAt, type NamedWindow } from './lib/timewindows';
+import { getVarjyamIntervals } from './lib/varjyam';
 import {
   getAyana,
   DAKSHINAYANA_WARN,
@@ -734,6 +735,23 @@ export default function App() {
                   <dt>Yamagaṇḍa</dt><dd>{fmtPeriod(panchang.yamaganda, panchang.sunrise)}</dd>
                   <dt>Gulika Kālam</dt><dd>{fmtPeriod(panchang.gulikaKalam, panchang.sunrise)}</dd>
                   <dt>Dur Muhūrta</dt><dd>{panchang.durMuhurta.map((p) => fmtPeriod(p, panchang.sunrise)).join(' · ')}</dd>
+                  <dt>Varjyam</dt>
+                  <dd>
+                    {(() => {
+                      // Only show intervals that actually fall within today's
+                      // tracked sunrise-to-sunrise window — a nakshatra
+                      // segment active at sunrise can have its Varjyam
+                      // portion fall entirely in the PREVIOUS day, which
+                      // would be confusing to show as "today's" Varjyam.
+                      const nextSunrise = new Date(panchang.sunrise.getTime() + 24 * 60 * 60 * 1000);
+                      const todays = getVarjyamIntervals(panchang).filter(
+                        (v) => v.end > panchang.sunrise && v.start < nextSunrise,
+                      );
+                      return todays.length
+                        ? todays.map((v) => `${fmtTimeDay(v.start, panchang.sunrise)} – ${fmtTimeDay(v.end, panchang.sunrise)} (${v.nakshatraName})`).join(' · ')
+                        : 'None today';
+                    })()}
+                  </dd>
                   <dt>Panchaka</dt><dd>{panchang.panchaka ? `Active — ${panchakaTypeFromNakshatra(panchang.nakshatras[0]?.name ?? '') ?? 'unknown type'} Panchaka` : 'Not active'}</dd>
                 </dl>
               </div>
